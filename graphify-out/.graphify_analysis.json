@@ -1,0 +1,400 @@
+{
+  "communities": {
+    "0": [
+      "admin_package_devdependencies",
+      "admin_package_devdependencies_astrojs_check",
+      "admin_package_devdependencies_eslint",
+      "admin_package_devdependencies_eslint_js",
+      "admin_package_devdependencies_eslint_plugin_react_hooks",
+      "admin_package_devdependencies_eslint_plugin_react_refresh",
+      "admin_package_devdependencies_globals",
+      "admin_package_devdependencies_tailwindcss",
+      "admin_package_devdependencies_tailwindcss_vite",
+      "admin_package_devdependencies_types_node",
+      "admin_package_devdependencies_types_react",
+      "admin_package_devdependencies_types_react_dom",
+      "admin_package_devdependencies_typescript",
+      "admin_package_devdependencies_typescript_eslint",
+      "admin_package_devdependencies_vite",
+      "admin_package_devdependencies_vitejs_plugin_react",
+      "admin_package_json_astrojs_check",
+      "admin_package_json_eslint",
+      "admin_package_json_eslint_js",
+      "admin_package_json_eslint_plugin_react_hooks",
+      "admin_package_json_eslint_plugin_react_refresh",
+      "admin_package_json_globals",
+      "admin_package_json_tailwindcss",
+      "admin_package_json_tailwindcss_vite",
+      "admin_package_json_types_node",
+      "admin_package_json_types_react",
+      "admin_package_json_types_react_dom",
+      "admin_package_json_typescript",
+      "admin_package_json_typescript_eslint",
+      "admin_package_json_vite",
+      "admin_package_json_vitejs_plugin_react",
+      "frontend_package_devdependencies",
+      "frontend_package_devdependencies_astrojs_check",
+      "frontend_package_devdependencies_eslint",
+      "frontend_package_devdependencies_eslint_js",
+      "frontend_package_devdependencies_eslint_plugin_react_hooks",
+      "frontend_package_devdependencies_eslint_plugin_react_refresh",
+      "frontend_package_devdependencies_globals",
+      "frontend_package_devdependencies_tailwindcss",
+      "frontend_package_devdependencies_tailwindcss_vite",
+      "frontend_package_devdependencies_types_node",
+      "frontend_package_devdependencies_types_react",
+      "frontend_package_devdependencies_types_react_dom",
+      "frontend_package_devdependencies_typescript",
+      "frontend_package_devdependencies_typescript_eslint",
+      "frontend_package_devdependencies_vite",
+      "frontend_package_devdependencies_vitejs_plugin_react",
+      "frontend_package_json_vite"
+    ],
+    "1": [
+      "admin_package_dependencies",
+      "admin_package_dependencies_astro",
+      "admin_package_dependencies_astrojs_react",
+      "admin_package_dependencies_axios",
+      "admin_package_dependencies_hookform_resolvers",
+      "admin_package_dependencies_lucide_react",
+      "admin_package_dependencies_react",
+      "admin_package_dependencies_react_dom",
+      "admin_package_dependencies_react_hook_form",
+      "admin_package_dependencies_react_router_dom",
+      "admin_package_dependencies_sonner",
+      "admin_package_dependencies_tailwind_merge",
+      "admin_package_dependencies_yup",
+      "admin_package_dependencies_zustand",
+      "admin_package_json_astro",
+      "admin_package_json_astrojs_react",
+      "admin_package_json_axios",
+      "admin_package_json_hookform_resolvers",
+      "admin_package_json_lucide_react",
+      "admin_package_json_react",
+      "admin_package_json_react_dom",
+      "admin_package_json_react_hook_form",
+      "admin_package_json_sonner",
+      "admin_package_json_tailwind_merge",
+      "admin_package_json_yup",
+      "admin_package_json_zustand",
+      "framer_motion",
+      "frontend_package_dependencies",
+      "frontend_package_dependencies_astro",
+      "frontend_package_dependencies_astrojs_react",
+      "frontend_package_dependencies_axios",
+      "frontend_package_dependencies_framer_motion",
+      "frontend_package_dependencies_hookform_resolvers",
+      "frontend_package_dependencies_lucide_react",
+      "frontend_package_dependencies_react",
+      "frontend_package_dependencies_react_dom",
+      "frontend_package_dependencies_react_hook_form",
+      "frontend_package_dependencies_sonner",
+      "frontend_package_dependencies_tailwind_merge",
+      "frontend_package_dependencies_yup",
+      "frontend_package_dependencies_zustand",
+      "frontend_package_json_astro",
+      "frontend_package_json_axios",
+      "frontend_package_json_react",
+      "frontend_package_json_sonner",
+      "frontend_package_json_yup",
+      "react_router_dom"
+    ],
+    "2": [
+      "admin_tsconfig",
+      "admin_tsconfig_compileroptions",
+      "admin_tsconfig_compileroptions_baseurl",
+      "admin_tsconfig_compileroptions_jsx",
+      "admin_tsconfig_compileroptions_jsximportsource",
+      "admin_tsconfig_compileroptions_paths",
+      "admin_tsconfig_exclude",
+      "admin_tsconfig_extends",
+      "admin_tsconfig_include",
+      "admin_tsconfig_json_ref",
+      "admin_tsconfig_json_ref_astro_tsconfigs_strict",
+      "admin_tsconfig_json_ref_astro_types_d_ts",
+      "admin_tsconfig_json_ref_dist",
+      "admin_tsconfig_json_ref_src_backend",
+      "admin_tsconfig_paths_backend",
+      "frontend_tsconfig",
+      "frontend_tsconfig_compileroptions",
+      "frontend_tsconfig_compileroptions_baseurl",
+      "frontend_tsconfig_compileroptions_jsx",
+      "frontend_tsconfig_compileroptions_jsximportsource",
+      "frontend_tsconfig_compileroptions_paths",
+      "frontend_tsconfig_exclude",
+      "frontend_tsconfig_extends",
+      "frontend_tsconfig_include",
+      "frontend_tsconfig_json_ref",
+      "frontend_tsconfig_json_ref_dist",
+      "frontend_tsconfig_paths_backend"
+    ],
+    "3": [
+      "backend_package",
+      "backend_package_description",
+      "backend_package_devdependencies",
+      "backend_package_devdependencies_nodemon",
+      "backend_package_devdependencies_prisma",
+      "backend_package_engines",
+      "backend_package_engines_node",
+      "backend_package_main",
+      "backend_package_name",
+      "backend_package_scripts",
+      "backend_package_scripts_dev",
+      "backend_package_scripts_prisma_format",
+      "backend_package_scripts_prisma_generate",
+      "backend_package_scripts_prisma_migrate_deploy",
+      "backend_package_scripts_prisma_migrate_dev",
+      "backend_package_scripts_prisma_migrate_status",
+      "backend_package_scripts_prisma_pull",
+      "backend_package_scripts_prisma_studio",
+      "backend_package_scripts_start",
+      "backend_package_type",
+      "backend_package_version",
+      "nodemon",
+      "prisma"
+    ],
+    "4": [
+      "backend_package_dependencies",
+      "backend_package_dependencies_cookie_parser",
+      "backend_package_dependencies_cors",
+      "backend_package_dependencies_dotenv",
+      "backend_package_dependencies_express",
+      "backend_package_dependencies_express_rate_limit",
+      "backend_package_dependencies_helmet",
+      "backend_package_dependencies_morgan",
+      "backend_package_dependencies_nanoid",
+      "backend_package_dependencies_prisma_client",
+      "cookie_parser",
+      "cors",
+      "dotenv",
+      "express",
+      "express_rate_limit",
+      "helmet",
+      "morgan",
+      "nanoid",
+      "prisma_client"
+    ],
+    "5": [
+      "admin_src_app",
+      "admin_src_app_app",
+      "admin_src_components_layout_sidebar",
+      "admin_src_components_layout_sidebar_navitems",
+      "admin_src_components_layout_sidebar_sidebar",
+      "admin_src_layouts_layout",
+      "admin_src_pages_dashboardpage",
+      "admin_src_pages_dashboardpage_dashboardpage",
+      "admin_src_pages_index",
+      "admin_src_pages_notfoundpage",
+      "admin_src_pages_notfoundpage_notfoundpage",
+      "admin_src_pages_settingspage",
+      "admin_src_pages_settingspage_settingspage",
+      "admin_src_pages_userspage",
+      "admin_src_pages_userspage_userspage"
+    ],
+    "6": [
+      "admin_package",
+      "admin_package_name",
+      "admin_package_private",
+      "admin_package_scripts",
+      "admin_package_scripts_astro",
+      "admin_package_scripts_build",
+      "admin_package_scripts_dev",
+      "admin_package_scripts_lint",
+      "admin_package_scripts_preview",
+      "admin_package_type",
+      "admin_package_version"
+    ],
+    "7": [
+      "backend_app",
+      "backend_app_app",
+      "backend_app_globallimiter",
+      "backend_config_db",
+      "backend_config_db_prisma",
+      "backend_config_main",
+      "backend_config_main_db",
+      "backend_config_main_defaultorigins",
+      "backend_config_main_origins",
+      "backend_server",
+      "backend_server_startserver"
+    ],
+    "8": [
+      "frontend_package",
+      "frontend_package_name",
+      "frontend_package_private",
+      "frontend_package_scripts",
+      "frontend_package_scripts_astro",
+      "frontend_package_scripts_build",
+      "frontend_package_scripts_dev",
+      "frontend_package_scripts_lint",
+      "frontend_package_scripts_preview",
+      "frontend_package_type",
+      "frontend_package_version"
+    ],
+    "9": [
+      "backend_prisma_build_database_url",
+      "backend_prisma_build_database_url_args",
+      "backend_prisma_build_database_url_destructive",
+      "backend_prisma_build_database_url_isdestructive",
+      "backend_prisma_build_database_url_islocalhost",
+      "backend_prisma_build_database_url_local_hosts"
+    ],
+    "10": [
+      "admin_src_backend_connection",
+      "admin_src_backend_connection_api",
+      "admin_src_backend_connection_endpoints",
+      "admin_src_backend_connection_request"
+    ],
+    "11": [
+      "frontend_src_backend_connection",
+      "frontend_src_backend_connection_api",
+      "frontend_src_backend_connection_endpoints",
+      "frontend_src_backend_connection_request"
+    ],
+    "12": [
+      "opencode_plugins_graphify",
+      "opencode_plugins_graphify_graphifyplugin",
+      "opencode_plugins_graphify_rationale_4"
+    ],
+    "13": [
+      "frontend_src_layouts_layout",
+      "frontend_src_pages_index"
+    ],
+    "14": [
+      "admin_astro_config"
+    ],
+    "15": [
+      "frontend_astro_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.05319148936170213,
+    "1": 0.04810360777058279,
+    "2": 0.07977207977207977,
+    "3": 0.08695652173913043,
+    "4": 0.10526315789473684,
+    "5": 0.18095238095238095,
+    "6": 0.18181818181818182,
+    "7": 0.2727272727272727,
+    "8": 0.18181818181818182,
+    "9": 0.3333333333333333,
+    "10": 0.5,
+    "11": 0.5,
+    "12": 0.6666666666666666,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0
+  },
+  "gods": [
+    {
+      "id": "backend_package_scripts",
+      "label": "scripts",
+      "degree": 10
+    },
+    {
+      "id": "admin_package_scripts",
+      "label": "scripts",
+      "degree": 6
+    },
+    {
+      "id": "frontend_package_scripts",
+      "label": "scripts",
+      "degree": 6
+    },
+    {
+      "id": "admin_tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 5
+    },
+    {
+      "id": "frontend_tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 5
+    },
+    {
+      "id": "admin_tsconfig_include",
+      "label": "include",
+      "degree": 3
+    },
+    {
+      "id": "frontend_tsconfig_include",
+      "label": "include",
+      "degree": 3
+    },
+    {
+      "id": "admin_src_components_layout_sidebar_sidebar",
+      "label": "Sidebar()",
+      "degree": 2
+    },
+    {
+      "id": "admin_src_pages_dashboardpage_dashboardpage",
+      "label": "DashboardPage()",
+      "degree": 2
+    },
+    {
+      "id": "admin_src_pages_notfoundpage_notfoundpage",
+      "label": "NotFoundPage()",
+      "degree": 2
+    }
+  ],
+  "surprises": [
+    {
+      "source": "include",
+      "target": ".astro/types.d.ts",
+      "source_files": [
+        "Frontend/tsconfig.json",
+        "Admin/tsconfig.json"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "extends",
+      "why": "connects across different repos/directories"
+    },
+    {
+      "source": "backend/*",
+      "target": "src/backend/*",
+      "source_files": [
+        "Frontend/tsconfig.json",
+        "Admin/tsconfig.json"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "extends",
+      "why": "connects across different repos/directories"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `dependencies` connect `dependencies` to `Admin/package.json`?",
+      "why": "High betweenness centrality (0.087) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `dependencies` connect `dependencies` to `Frontend/package.json`?",
+      "why": "High betweenness centrality (0.087) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `devDependencies` connect `devDependencies` to `Frontend/package.json`?",
+      "why": "High betweenness centrality (0.083) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `vite`, `vite`, `astro` to the rest of the system?",
+      "why": "83 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `devDependencies` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.05319148936170213 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `dependencies` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.04810360777058279 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Admin/tsconfig.json` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.07977207977207977 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

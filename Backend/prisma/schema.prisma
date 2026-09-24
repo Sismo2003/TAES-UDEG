@@ -1,0 +1,469 @@
+// =============================================================================
+// Prisma schema — TAEV-UDEG-PREPA2
+//
+// FUENTE DE VERDAD DEL ESQUEMA. Cada cambio se hace acá, se genera la migración
+// con `npm run prisma:migrate:dev -- --create-only --name <nombre>`, se lee el
+// SQL resultante y recién entonces se aplica.
+//
+// Documentación de referencia:
+//   - Docs/TAEV-DOMAIN.md            reglas de negocio (qué hace el sistema)
+//   - Docs/DATABASE.md               decisiones técnicas, tabla por tabla
+//   - Database/schemas/001_taev.dbml ERD visual
+//   - Database/schemas/002_constraints.sql  CHECKs e índices parciales que
+//                                    Prisma NO sabe expresar — hay que pegarlos
+//                                    a mano en la migración inicial.
+//
+// ⚠️ TRES TRAMPAS QUE ESTE ARCHIVO YA EVITA — no las deshagas:
+//
+//   1. `DateTime` en Prisma mapea a `timestamp(3)` SIN zona horaria. Todo el
+//      sistema depende de un instante exacto ("22 de agosto, 10:00"), así que
+//      TODO campo temporal lleva `@db.Timestamptz(6)` explícito.
+//   2. Prisma no genera CHECK constraints ni índices parciales. Los que el
+//      dominio necesita viven en `Database/schemas/002_constraints.sql`.
+//   3. `BigInt` de Prisma rompe `res.json()` (JSON.stringify no serializa
+//      BigInt). Por eso `audit_log.id` es Int y no BigInt.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Roles del panel interno. El alumno NO es un rol: su única credencial es el
+/// código de 9 dígitos validado contra el padrón del semestre.
+enum UserRole {
+  superadmin
+  admin
+  viewer
+
+  @@map("user_role")
+}
+
+/// Control de la ventana de envío. Reemplaza al par `is_open` + ventana por
+/// tiempo, que no podía expresar "cerrar antes de tiempo" (ver Docs/DATABASE.md §3.2).
+///
+/// PRECEDENCIA ABSOLUTA — `force_closed` gana sobre todo. Ese es el kill switch.
+///   force_closed → CERRADO siempre, sin importar la hora.
+///   force_open   → ABIERTO siempre, sin importar la hora.
+///   scheduled    → abierto sólo si NOW() ∈ [opens_at, closes_at).
+enum SemesterWindowMode {
+  scheduled
+  force_open
+  force_closed
+
+  @@map("semester_window_mode")
+}
+
+/// Estados de un envío. Sólo se declaran los estados que el allocator
+/// REALMENTE produce: en PostgreSQL no se puede eliminar un valor de un enum
+/// una vez creado, así que nada de valores "por si acaso".
+enum SubmissionStatus {
+  pending
+  allocated
+  unplaced
+
+  @@map("submission_status")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAMPUSES — la escuela. Nivel raíz de todo el modelo.
+//
+// Hoy hay una sola fila (PREPA 2), pero la columna existe desde el día 1 a
+// propósito: agregar un FK NOT NULL a `semesters` cuando ya haya datos reales
+// obliga a un backfill con downtime. Con una fila sembrada, no cambia nada
+// operativamente y la plataforma queda lista para más escuelas.
+//
+// Cada campus tiene su propia ventana, su propio padrón, su propia oferta de
+// asignaturas y sus propios cupos. No comparten nada excepto el catálogo
+// maestro `subjects`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Campus {
+  id Int @id @default(autoincrement())
+
+  /// Identificador url-safe: minúsculas y guiones ("prepa-2", "prepa-3").
+  /// Se usa TAL CUAL como segmento de URL en el portal público
+  /// (`/registro/prepa-2`), así que no hay un segundo "slug" que mantener
+  /// sincronizado.
+  code String @unique @db.VarChar(32)
+  /// Nombre para mostrar: "Preparatoria No. 2".
+  name String @db.VarChar(160)
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  users     User[]
+  semesters Semester[]
+
+  @@map("campuses")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USERS — administradores del panel interno
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(160)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  fullName     String   @map("full_name") @db.VarChar(160)
+  role         UserRole @default(admin)
+
+  /// Campus al que pertenece el admin. NULL = alcance global (toda la red).
+  ///
+  /// El CHECK `users_campus_scope` (002_constraints.sql) sólo permite NULL a
+  /// los `superadmin`: un `admin` o un `viewer` SIEMPRE está acotado a una
+  /// escuela. Sin esa regla, un admin sin campus sería silenciosamente
+  /// omnipotente.
+  ///
+  /// ⚠️ Esto es sólo la mitad de la garantía. La otra mitad es el middleware
+  /// que compara `user.campusId` contra el campus del recurso en CADA request
+  /// del panel — ver Docs/DATABASE.md §7. El esquema define el alcance; el
+  /// middleware lo hace cumplir.
+  campusId Int? @map("campus_id")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  campus           Campus?           @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  semestersCreated Semester[]        @relation("SemesterCreatedBy")
+  assignmentsMade  GroupAssignment[] @relation("AssignmentAssignedBy")
+  auditEntries     AuditLog[]
+
+  @@index([campusId])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEMESTERS — raíz del modelo. Todo cuelga de acá.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Semester {
+  id Int @id @default(autoincrement())
+
+  /// La escuela dueña de este semestre. Cada campus corre su propio ciclo:
+  /// su ventana, su padrón, su oferta y sus cupos son independientes.
+  campusId Int @map("campus_id")
+
+  code  String @db.VarChar(16) /// "2026A" — único DENTRO del campus
+  label String @db.VarChar(64) /// "2026-A" — lo que ve el alumno al terminar
+
+  /// Semestre al que apunta el portal público de ESTE campus. Exactamente uno
+  /// por campus puede tenerlo en true: lo garantiza el índice único parcial
+  /// `semesters_single_current_per_campus` de 002_constraints.sql. Sin eso,
+  /// "el semestre activo" es ambiguo y las consultas del alumno devuelven lo
+  /// que el planner decida.
+  isCurrent Boolean @default(false) @map("is_current")
+
+  /// Ventana de envío. Se persisten los DOS extremos como timestamptz reales
+  /// en vez de `opens_at + duration_minutes`: así la consulta "¿está abierta?"
+  /// usa índice, y el fin de la ventana tiene un solo lugar donde vive.
+  /// La API sigue aceptando `durationMinutes` como comodidad y deriva closesAt.
+  opensAt    DateTime           @map("opens_at") @db.Timestamptz(6)
+  closesAt   DateTime           @map("closes_at") @db.Timestamptz(6)
+  windowMode SemesterWindowMode @default(scheduled) @map("window_mode")
+
+  /// Cuántas preferencias debe ordenar el alumno. Configurable por semestre;
+  /// el Frontend lo lee de `GET /api/taev/status`, no de un JSON local.
+  ranksRequired Int @default(3) @map("ranks_required")
+
+  notes       String?  @db.Text
+  createdById Int      @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  campus      Campus                 @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  createdBy   User                   @relation("SemesterCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  students    SemesterStudent[]
+  offerings   SemesterSubject[]
+  submissions FormSubmission[]
+  preferences SubmissionPreference[]
+
+  /// "2026A" existe una vez POR ESCUELA, no una vez en todo el sistema.
+  @@unique([campusId, code])
+  @@index([campusId, isCurrent])
+  @@index([opensAt, closesAt])
+  @@map("semesters")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBJECTS — catálogo maestro, compartido por TODA la red
+//
+// Deliberadamente NO tiene `campus_id`. "Cada escuela oferta asignaturas
+// distintas" se expresa en `semester_subjects` (la oferta), que es justamente
+// para lo que existe esa tabla: PREPA 2 puede ofrecer Robótica y PREPA 3 no,
+// sin duplicar el catálogo.
+//
+// La ventaja de mantenerlo compartido es que "Robótica" es la MISMA fila en
+// toda la red, así que un reporte cruzado ("cuántos eligieron Robótica en
+// todos los campus") es una consulta trivial en vez de un match por nombre.
+//
+// Si algún día una escuela necesita una asignatura que no tiene sentido en
+// otras, se agrega `campus_id Int?` acá (NULL = compartida) — es aditivo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Subject {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(32) /// "TAEV-ROB"
+  name        String   @db.VarChar(120) /// "Robótica"
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  offerings SemesterSubject[]
+
+  @@map("subjects")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEMESTER_SUBJECTS — la OFERTA: qué asignaturas existen en qué semestre.
+//
+// Esta tabla es el punto de anclaje de todo lo que depende de una asignatura.
+// Ni los grupos ni las preferencias apuntan a `subjects` directamente: apuntan
+// acá. Así es estructuralmente imposible crear un grupo de una asignatura que
+// el semestre no ofrece, o que un alumno prefiera algo fuera del catálogo del
+// semestre.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SemesterSubject {
+  id           Int     @id @default(autoincrement())
+  semesterId   Int     @map("semester_id")
+  subjectId    Int     @map("subject_id")
+  displayOrder Int     @default(0) @map("display_order")
+  isActive     Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  semester    Semester               @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  subject     Subject                @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  groups      SubjectGroup[]
+  preferences SubmissionPreference[]
+
+  /// Una asignatura se ofrece una sola vez por semestre.
+  @@unique([semesterId, subjectId])
+  /// Redundante como llave, pero necesaria como DESTINO de las FK compuestas
+  /// de `submission_preferences`. Es lo que impide cruzar semestres.
+  @@unique([id, semesterId], name: "semester_subject_scope")
+  @@index([semesterId, displayOrder])
+  @@map("semester_subjects")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEMESTER_STUDENTS — padrón por semestre
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SemesterStudent {
+  id         Int    @id @default(autoincrement())
+  semesterId Int    @map("semester_id")
+  /// Código UDEG de 9 dígitos, EXACTAMENTE 9. Es VarChar y no Char: `char(9)`
+  /// rellena con espacios a la derecha y rompe las comparaciones de igualdad.
+  /// El formato lo garantiza el CHECK `semester_students_code_format`.
+  code       String @db.VarChar(9)
+
+  fullName             String? @map("full_name") @db.VarChar(160)
+  email                String? @db.VarChar(160)
+  career               String? @db.VarChar(120)
+  studentSemesterLabel String? @map("student_semester_label") @db.VarChar(32)
+
+  /// Soft-delete. TODA consulta del portal público debe filtrar `isActive`.
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  semester   Semester        @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  submission FormSubmission?
+
+  /// Un código no se repite dentro de un semestre. Entre semestres sí.
+  @@unique([semesterId, code])
+  /// Destino de la FK compuesta de `form_submissions`.
+  @@unique([id, semesterId], name: "semester_student_scope")
+  @@index([code])
+  @@map("semester_students")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBJECT_GROUPS — secciones con cupo
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SubjectGroup {
+  id                Int    @id @default(autoincrement())
+  semesterSubjectId Int    @map("semester_subject_id")
+  label             String @db.VarChar(32) /// "A", "B", "1"
+  capacity          Int
+
+  /// Ocupación materializada. La mantiene el allocator (y el override manual)
+  /// dentro de la MISMA transacción que escribe `group_assignments`.
+  ///
+  /// No es sólo una optimización: el CHECK `assigned_count <= capacity` de
+  /// 002_constraints.sql convierte a la base en la última línea de defensa —
+  /// ni un service con bugs puede sobrepasar un cupo.
+  assignedCount Int @default(0) @map("assigned_count")
+
+  /// Orden en que el allocator llena los grupos de una misma asignatura.
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  semesterSubject SemesterSubject   @relation(fields: [semesterSubjectId], references: [id], onDelete: Cascade)
+  assignments     GroupAssignment[]
+
+  @@unique([semesterSubjectId, label])
+  @@index([semesterSubjectId, displayOrder])
+  @@map("subject_groups")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORM_SUBMISSIONS — el envío del alumno. INMUTABLE después de creado.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model FormSubmission {
+  id         Int @id @default(autoincrement())
+  semesterId Int @map("semester_id")
+
+  /// FK COMPUESTA a (id, semester_id) del padrón: garantiza que el envío y el
+  /// alumno pertenezcan al mismo semestre. Sin esto, `semester_id` acá es un
+  /// dato denormalizado que puede contradecir al alumno.
+  semesterStudentId Int @map("semester_student_id")
+
+  /// Server time. El cliente NUNCA decide el orden: es el corazón de la
+  /// equidad del sistema (primero en llegar, primero en ser atendido).
+  submittedAt DateTime @default(now()) @map("submitted_at") @db.Timestamptz(6)
+
+  ip        String? @db.Inet
+  userAgent String? @map("user_agent") @db.Text
+
+  status SubmissionStatus @default(pending)
+  /// Cuándo corrió la asignación que dejó a este envío en su estado actual.
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  semester    Semester               @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  student     SemesterStudent        @relation(fields: [semesterStudentId, semesterId], references: [id, semesterId], onDelete: Cascade)
+  preferences SubmissionPreference[]
+  assignment  GroupAssignment?
+
+  /// Un alumno envía UNA sola vez. Como `semester_students` ya está acotado a
+  /// un semestre, esto equivale a "un envío por alumno por semestre".
+  /// Es también lo que hace 1:1 la relación con SemesterStudent.
+  @@unique([semesterStudentId, semesterId], name: "submission_student_unique")
+  /// Destino de la FK compuesta de `submission_preferences`.
+  @@unique([id, semesterId], name: "submission_scope")
+  /// El índice del allocator. `id` va al final como desempate determinista
+  /// para dos envíos con el mismo `submitted_at`.
+  @@index([semesterId, submittedAt, id])
+  @@index([semesterId, status])
+  @@map("form_submissions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBMISSION_PREFERENCES — rank 1..N sobre la oferta del semestre
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SubmissionPreference {
+  id           Int @id @default(autoincrement())
+  submissionId Int @map("submission_id")
+  /// Denormalizado a propósito: es el pegamento de las dos FK compuestas de
+  /// abajo. Hace imposible que una preferencia mezcle semestres.
+  semesterId   Int @map("semester_id")
+
+  semesterSubjectId Int @map("semester_subject_id")
+  rank              Int @db.SmallInt
+
+  submission      FormSubmission  @relation(fields: [submissionId, semesterId], references: [id, semesterId], onDelete: Cascade)
+  semester        Semester        @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  semesterSubject SemesterSubject @relation(fields: [semesterSubjectId, semesterId], references: [id, semesterId], onDelete: Restrict)
+
+  /// No puede haber dos rank=1.
+  @@unique([submissionId, rank])
+  /// No puede rankear la misma asignatura dos veces.
+  @@unique([submissionId, semesterSubjectId])
+  @@index([semesterSubjectId])
+  @@map("submission_preferences")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GROUP_ASSIGNMENTS — resultado materializado. 0 o 1 por alumno.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GroupAssignment {
+  id           Int @id @default(autoincrement())
+  /// @unique ⇒ un alumno tiene a lo sumo UNA asignación final.
+  submissionId Int @unique @map("submission_id")
+  groupId      Int @map("group_id")
+
+  /// Cuál de sus preferencias se usó (1, 2, 3…). NULL ⇒ colocación manual en
+  /// una asignatura que el alumno no rankeó (el admin lo ubicó "donde había
+  /// lugar"). El CHECK acepta NULL o >= 1; el 0 sigue prohibido.
+  assignedRank Int?     @map("assigned_rank") @db.SmallInt
+  assignedAt   DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+
+  /// SIEMPRE lleno: el admin que disparó la corrida o que movió al alumno a
+  /// mano. Quién-hizo-qué nunca es NULL. Auto vs. manual lo dice
+  /// `isManualOverride`, no la ausencia de este campo.
+  assignedById     Int     @map("assigned_by_id")
+  isManualOverride Boolean @default(false) @map("is_manual_override")
+  notes            String? @db.Text
+
+  submission FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  group      SubjectGroup   @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  assignedBy User           @relation("AssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@index([groupId])
+  @@map("group_assignments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT_LOG — bitácora append-only. Implementada desde el día 1.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  /// Int y no BigInt a propósito: el BigInt de Prisma no sobrevive a
+  /// JSON.stringify y rompe `res.json()`. 2.1 mil millones de filas sobran.
+  id     Int  @id @default(autoincrement())
+  userId Int? @map("user_id")
+
+  /// "semester.create" | "semester.window.force_closed" | "students.bulk_upload"
+  /// | "allocation.run" | "assignment.override" | ...
+  action     String  @db.VarChar(64)
+  entityType String? @map("entity_type") @db.VarChar(64)
+  entityId   Int?    @map("entity_id")
+  /// JSONB (no Text): consultable con operadores nativos de PostgreSQL.
+  payload    Json?   @db.JsonB
+  ip         String? @db.Inet
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NO ESTÁN ACÁ A PROPÓSITO
+//
+// `subject_group_schedules` (horario/salón/profesor por grupo) y
+// `notifications` (cola de correos post-asignación) viven documentadas en
+// Database/schemas/001_taev.dbml como extensiones futuras, pero NO se migran:
+// crear tablas que nadie escribe sólo agrega superficie que mantener. El modelo
+// las aguanta sin cambios destructivos cuando se necesiten
+// (ver Docs/DATABASE.md §4).
+//
+// `campuses` SÍ se migra desde el día 1, aunque hoy tenga una sola fila: es un
+// FK NOT NULL en `semesters`, y agregarlo después con datos reales obliga a un
+// backfill. Ver el comentario del modelo Campus.
+// ─────────────────────────────────────────────────────────────────────────────

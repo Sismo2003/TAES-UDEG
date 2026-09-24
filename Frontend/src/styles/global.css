@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap');
+@import "tailwindcss";
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Identidad visual — Portal TAEV (Prepa 2 UDG). Paleta y tipografía tomadas
+   del diseño "Portal TAEV" (Industry design system: azul-gris institucional,
+   Barlow Condensed en headings, Barlow en body).
+   ──────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-primary: #5980a6;
+  --color-accent: #728fab;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f2f2f3;
+  --color-ink: #1d1f20;
+  --color-ink-muted: #5d5d60;
+  --color-border: #d9d9dc;
+
+  --font-heading: "Barlow Condensed", system-ui, sans-serif;
+  --font-body: "Barlow", ui-sans-serif, system-ui, sans-serif;
+}
+
+html, body {
+  background-color: var(--color-surface-muted);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+@keyframes taev-spin {
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,5 @@
+{
+  "_comment": "Identifica a qué escuela apunta este despliegue del portal y valida el código del lado del cliente. Todo lo demás (label del semestre, ranksRequired, asignaturas ofertadas, estado de la ventana) viene de GET /api/taev/status — son datos del semestre activo, no del build.",
+  "campus": "prepa-2",
+  "codeLength": 9
+}

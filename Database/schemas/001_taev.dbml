@@ -1,0 +1,392 @@
+// =============================================================
+// TAEV UDEG PREPA 2 — ERD
+// Importa con: "Import from DBML" en https://dbml.dbdiagram.io/home
+//
+// ⚠️ Este archivo es una VISTA, no la fuente de verdad. El esquema real vive
+// en Backend/prisma/schema.prisma. Si los dos discrepan, gana Prisma y este
+// archivo está desactualizado.
+//
+// Documentación de referencia:
+//   - Docs/TAEV-DOMAIN.md                  qué hace el sistema
+//   - Docs/DATABASE.md                     decisiones técnicas, tabla por tabla
+//   - Backend/prisma/schema.prisma         FUENTE DE VERDAD
+//   - Database/schemas/002_constraints.sql CHECKs e índices parciales
+//
+// Conventions:
+//   - PK: id Int autoincrement
+//   - Auditoría: created_at, updated_at; created_by_id cuando aplica
+//   - Timestamps: timestamptz SIEMPRE (el sistema depende de instantes exactos)
+// =============================================================
+
+Project taev_udeg_prepa2 {
+  database_type: 'PostgreSQL'
+  Note: '''
+    Sistema de registro TAEV — campus, semestres, padrón, oferta de
+    asignaturas, grupos con cupo y asignación por orden de llegada.
+
+    Multi-escuela desde el día 1: campuses → semesters → todo lo demás.
+    Hoy hay una sola fila (prepa-2), pero cada campus corre su propio ciclo
+    con su ventana, su padrón, su oferta y sus cupos independientes.
+
+    Invariantes que NO se ven en este diagrama porque viven en
+    002_constraints.sql (Prisma no genera CHECKs ni índices parciales):
+      · un solo semestre con is_current = true POR CAMPUS
+      · sólo un superadmin puede tener campus_id NULL (alcance global)
+      · semester_students.code ~ '^[0-9]{9}$'
+      · subject_groups.assigned_count BETWEEN 0 AND capacity
+      · semesters.closes_at > opens_at
+      · campuses.code url-safe (minúsculas y guiones)
+  '''
+}
+
+// ─────────────────────────────────────────────────────────────
+// CAMPUSES — la escuela. Nivel raíz del modelo.
+// ─────────────────────────────────────────────────────────────
+
+Table campuses {
+  id         Int         [pk, increment]
+  code       Varchar     [unique, not null, note: 'url-safe: "prepa-2". Se usa TAL CUAL como segmento de URL del portal (/registro/prepa-2).']
+  name       Varchar     [not null, note: 'Para mostrar: "Preparatoria No. 2"']
+  is_active  Boolean     [not null, default: true]
+  created_at Timestamptz [not null, default: `now()`]
+  updated_at Timestamptz [not null]
+
+  Note: '''
+    Se migra desde el día 1 aunque hoy tenga una sola fila: semesters.campus_id
+    es NOT NULL, y agregar ese FK después con datos reales obliga a un backfill
+    con downtime. Con la fila sembrada no cambia nada operativamente.
+
+    Cada escuela oferta sus propias asignaturas, grupos y cupos — eso sale
+    gratis del árbol campus → semester → semester_subjects → subject_groups.
+  '''
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+Enum user_role {
+  superadmin
+  admin
+  viewer
+}
+
+// Precedencia ABSOLUTA, no un OR de condiciones:
+//   force_closed → cerrado siempre (kill switch)
+//   force_open   → abierto siempre
+//   scheduled    → manda el reloj: [opens_at, closes_at)
+Enum semester_window_mode {
+  scheduled
+  force_open
+  force_closed
+}
+
+// Sólo los estados que el allocator REALMENTE produce. En PostgreSQL no se
+// puede eliminar un valor de un enum, así que nada "por si acaso".
+Enum submission_status {
+  pending
+  allocated
+  unplaced
+}
+
+// ─────────────────────────────────────────────────────────────
+// USERS — administradores del panel interno
+// ─────────────────────────────────────────────────────────────
+
+Table users {
+  id            Int         [pk, increment]
+  email         Varchar     [unique, not null, note: 'Login + contacto']
+  password_hash Varchar     [not null, note: 'bcrypt/argon2 — nunca plain']
+  full_name     Varchar     [not null]
+  role          user_role   [not null, default: `admin`]
+  campus_id     Int         [ref: > campuses.id, note: 'NULL = alcance global. CHECK: sólo un superadmin puede tenerlo en NULL.']
+  is_active     Boolean     [not null, default: true]
+  created_at    Timestamptz [not null, default: `now()`]
+  updated_at    Timestamptz [not null]
+
+  Indexes {
+    (campus_id)
+  }
+
+  Note: '''
+    Admins que operan el panel interno. Único rol autenticado: el alumno no
+    tiene cuenta, su credencial es el código de 9 dígitos contra el padrón.
+
+    campus_id acota al admin a SU escuela. El CHECK impide que un admin o un
+    viewer se queden sin campus (sería omnipotente en silencio). Hacer cumplir
+    ese alcance en cada request es trabajo del middleware — el esquema define
+    quién puede qué, el middleware lo aplica.
+  '''
+}
+
+// ─────────────────────────────────────────────────────────────
+// SEMESTERS — raíz del modelo
+// ─────────────────────────────────────────────────────────────
+
+Table semesters {
+  id         Int         [pk, increment]
+  campus_id  Int         [not null, ref: > campuses.id, note: 'La escuela dueña del ciclo']
+  code       Varchar     [not null, note: 'Ej. "2026A" — único DENTRO del campus']
+  label      Varchar     [not null, note: 'Ej. "2026-A" — lo que ve el alumno al terminar']
+  is_current Boolean     [not null, default: false, note: 'Semestre al que apunta el portal de ESTE campus. Índice único parcial por campus: sólo UNO por escuela puede tenerlo en true.']
+
+  opens_at    Timestamptz          [not null, note: 'Inicio de la ventana']
+  closes_at   Timestamptz          [not null, note: 'Fin de la ventana. Columna real, no derivada: la consulta usa índice.']
+  window_mode semester_window_mode [not null, default: `scheduled`]
+
+  ranks_required Int [not null, default: 3, note: 'Cuántas preferencias ordena el alumno. Configurable POR SEMESTRE.']
+
+  notes         Text
+  created_by_id Int         [not null, ref: > users.id]
+  created_at    Timestamptz [not null, default: `now()`]
+  updated_at    Timestamptz [not null]
+
+  Indexes {
+    (campus_id, code) [unique, note: '"2026A" existe una vez POR ESCUELA']
+    (campus_id, is_current)
+    (opens_at, closes_at)
+  }
+
+  Note: '''
+    La ventana NO es "hora OR switch". window_mode tiene precedencia absoluta:
+    force_closed gana sobre el reloj (kill switch), force_open también, y
+    scheduled deja mandar al reloj. Un booleano no podía expresar "cerrar
+    antes de tiempo" — ver Backend/utils/semesterWindow.js.
+  '''
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUBJECTS — catálogo maestro, COMPARTIDO por toda la red
+//
+// Deliberadamente sin campus_id: "cada escuela oferta asignaturas distintas"
+// se expresa en semester_subjects (la oferta). Mantenerlo compartido hace que
+// "Robótica" sea la MISMA fila en toda la red, y un reporte cruzado entre
+// campus sea una consulta trivial en vez de un match por nombre.
+// ─────────────────────────────────────────────────────────────
+
+Table subjects {
+  id          Int         [pk, increment]
+  code        Varchar     [unique, not null, note: 'Ej. "TAEV-ROB"']
+  name        Varchar     [not null, note: 'Ej. "Robótica"']
+  description Text
+  is_active   Boolean     [not null, default: true]
+  created_at  Timestamptz [not null, default: `now()`]
+  updated_at  Timestamptz [not null]
+
+  Note: 'Catálogo maestro. "Robótica" existe una vez y se ofrece en N semestres.'
+}
+
+// ─────────────────────────────────────────────────────────────
+// SEMESTER_SUBJECTS — LA OFERTA. Punto de anclaje de todo lo
+// que depende de una asignatura.
+// ─────────────────────────────────────────────────────────────
+
+Table semester_subjects {
+  id            Int         [pk, increment]
+  semester_id   Int         [not null, ref: > semesters.id]
+  subject_id    Int         [not null, ref: > subjects.id]
+  display_order Int         [not null, default: 0]
+  is_active     Boolean     [not null, default: true]
+  created_at    Timestamptz [not null, default: `now()`]
+  updated_at    Timestamptz [not null]
+
+  Indexes {
+    (semester_id, subject_id) [unique, note: 'Una asignatura se ofrece una vez por semestre']
+    (id, semester_id) [unique, note: 'Destino de las FK compuestas — es lo que impide cruzar semestres']
+    (semester_id, display_order)
+  }
+
+  Note: '''
+    Ni subject_groups ni submission_preferences apuntan a subjects: apuntan
+    ACÁ. Por eso es estructuralmente imposible crear un grupo de una
+    asignatura que el semestre no ofrece, o que un alumno prefiera algo
+    fuera del catálogo del semestre.
+  '''
+}
+
+// ─────────────────────────────────────────────────────────────
+// SEMESTER_STUDENTS — padrón por semestre
+// ─────────────────────────────────────────────────────────────
+
+Table semester_students {
+  id          Int     [pk, increment]
+  semester_id Int     [not null, ref: > semesters.id]
+  code        Varchar [not null, note: 'Código UDEG de EXACTAMENTE 9 dígitos. VarChar(9), no Char(9): Char rellena con espacios y rompe la igualdad.']
+
+  full_name              Varchar     [note: 'Importado de CSV / SIIAU (opcional)']
+  email                  Varchar
+  career                 Varchar
+  student_semester_label Varchar     [note: 'Semestre que cursa el alumno (opcional)']
+  is_active              Boolean     [not null, default: true, note: 'Soft-delete. TODA consulta del portal lo filtra.']
+  created_at             Timestamptz [not null, default: `now()`]
+  updated_at             Timestamptz [not null]
+
+  Indexes {
+    (semester_id, code) [unique, note: 'Un código por semestre. Entre semestres puede repetirse.']
+    (id, semester_id) [unique, note: 'Destino de la FK compuesta de form_submissions']
+    (code) [note: 'Búsqueda rápida al teclear el alumno']
+  }
+
+  Note: 'Padrón de alumnos válidos para este semestre. Carga vía CSV desde el admin.'
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUBJECT_GROUPS — secciones con cupo
+// ─────────────────────────────────────────────────────────────
+
+Table subject_groups {
+  id                  Int     [pk, increment]
+  semester_subject_id Int     [not null, ref: > semester_subjects.id, note: 'Apunta a la OFERTA, no al catálogo global']
+  label               Varchar [not null, note: 'Ej. "A", "B", "1"']
+  capacity            Int     [not null, note: 'Cupo máximo. CHECK > 0.']
+
+  assigned_count Int [not null, default: 0, note: 'Ocupación materializada. CHECK assigned_count <= capacity: la base es la última línea de defensa contra sobrecupo.']
+
+  display_order Int         [not null, default: 0, note: 'Orden en que el allocator llena los grupos']
+  is_active     Boolean     [not null, default: true]
+  created_at    Timestamptz [not null, default: `now()`]
+  updated_at    Timestamptz [not null]
+
+  Indexes {
+    (semester_subject_id, label) [unique]
+    (semester_subject_id, display_order)
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// FORM_SUBMISSIONS — inmutable post-envío
+// ─────────────────────────────────────────────────────────────
+
+Table form_submissions {
+  id                  Int [pk, increment]
+  semester_id         Int [not null, ref: > semesters.id]
+  semester_student_id Int [not null, note: 'FK COMPUESTA (semester_student_id, semester_id) → semester_students(id, semester_id): el envío y el alumno no pueden estar en semestres distintos']
+
+  submitted_at Timestamptz       [not null, default: `now()`, note: 'Server time. El corazón de la equidad: primero en llegar, primero en ser atendido.']
+  ip           Inet              [note: 'Auditoría']
+  user_agent   Text
+  status       submission_status [not null, default: `pending`]
+  resolved_at  Timestamptz       [note: 'Cuándo corrió la asignación que dejó este envío en su estado actual']
+
+  Indexes {
+    (semester_student_id, semester_id) [unique, note: 'Un alumno = 1 envío por semestre']
+    (id, semester_id) [unique, note: 'Destino de la FK compuesta de submission_preferences']
+    (semester_id, submitted_at, id) [note: 'Índice del allocator. id al final = desempate determinista.']
+    (semester_id, status)
+  }
+
+  Note: '''
+    NO tiene assigned_group_id. Esa columna era un cache de
+    group_assignments.group_id sin nadie que la sincronizara en los overrides
+    manuales: divergencia garantizada. El resultado se lee por la relación
+    1:1 con group_assignments.
+  '''
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUBMISSION_PREFERENCES — rank 1..N sobre la OFERTA
+// ─────────────────────────────────────────────────────────────
+
+Table submission_preferences {
+  id            Int [pk, increment]
+  submission_id Int [not null, note: 'FK COMPUESTA (submission_id, semester_id) → form_submissions(id, semester_id)']
+  semester_id   Int [not null, ref: > semesters.id, note: 'Denormalizado a propósito: es el pegamento de las dos FK compuestas']
+
+  semester_subject_id Int      [not null, note: 'FK COMPUESTA (semester_subject_id, semester_id) → semester_subjects(id, semester_id)']
+  rank                SmallInt [not null, note: '1..semesters.ranks_required. CHECK rank >= 1; el techo lo valida el service.']
+
+  Indexes {
+    (submission_id, rank) [unique, note: 'No puede haber dos rank=1']
+    (submission_id, semester_subject_id) [unique, note: 'No puede rankear la misma asignatura dos veces']
+    (semester_subject_id)
+  }
+
+  Note: 'Las dos FK compuestas hacen físicamente imposible que una preferencia mezcle semestres.'
+}
+
+Ref: submission_preferences.submission_id > form_submissions.id
+Ref: submission_preferences.semester_subject_id > semester_subjects.id
+Ref: form_submissions.semester_student_id > semester_students.id
+
+// ─────────────────────────────────────────────────────────────
+// GROUP_ASSIGNMENTS — resultado materializado
+// ─────────────────────────────────────────────────────────────
+
+Table group_assignments {
+  id            Int [pk, increment]
+  submission_id Int [not null, ref: - form_submissions.id, note: 'UNIQUE ⇒ 0 o 1 asignación por alumno']
+  group_id      Int [not null, ref: > subject_groups.id]
+
+  assigned_rank Int         [not null, note: 'Cuál de sus preferencias se usó (1, 2, 3…)']
+  assigned_at   Timestamptz [not null, default: `now()`]
+
+  assigned_by_id     Int     [not null, ref: > users.id, note: 'SIEMPRE lleno: el admin que disparó la corrida o que movió al alumno. Auto vs. manual lo dice is_manual_override, NO la ausencia de este campo.']
+  is_manual_override Boolean [not null, default: false]
+  notes              Text
+
+  Indexes {
+    (group_id)
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUDIT_LOG — bitácora append-only. Implementada desde el día 1.
+// ─────────────────────────────────────────────────────────────
+
+Table audit_log {
+  id      Int [pk, increment, note: 'Int y no BigInt: el BigInt de Prisma rompe JSON.stringify y por lo tanto res.json()']
+  user_id Int [ref: > users.id]
+
+  action      Varchar     [not null, note: 'semester.create | semester.window.force_closed | students.bulk_upload | allocation.run | assignment.override']
+  entity_type Varchar
+  entity_id   Int
+  payload     JSONB       [note: 'Diff before/after. JSONB, no Text: consultable con operadores nativos.']
+  ip          Inet
+  created_at  Timestamptz [not null, default: `now()`]
+
+  Indexes {
+    (user_id)
+    (entity_type, entity_id)
+    (created_at)
+  }
+
+  Note: 'Bitácora append-only. Toda acción admin escribe acá, especialmente los cambios de window_mode.'
+}
+
+// =============================================================
+// EXTENSIONES FUTURAS — documentadas, NO migradas.
+//
+// Estas tablas NO están en schema.prisma a propósito: crear tablas que nadie
+// escribe sólo agrega superficie que mantener. El modelo las aguanta sin
+// cambios destructivos cuando hagan falta (ver Docs/DATABASE.md §4).
+// =============================================================
+
+Table subject_group_schedules {
+  id          Int      [pk, increment]
+  group_id    Int      [not null, ref: > subject_groups.id]
+  day_of_week SmallInt [not null, note: '1=lunes..7=domingo']
+  start_time  Time     [not null]
+  end_time    Time     [not null]
+  classroom   Varchar
+  professor   Varchar
+
+  Indexes {
+    (group_id, day_of_week)
+  }
+
+  Note: 'Día / hora / salón / profesor por grupo. Tipo TIME, no Varchar.'
+}
+
+Table notifications {
+  id            Int     [pk, increment]
+  submission_id Int     [not null, ref: > form_submissions.id, note: 'Apunta al envío, no al alumno: la notificación es sobre un resultado']
+  channel       Varchar [not null, note: 'email | sms | in_app']
+  subject       Varchar
+  body          Text
+  status        Varchar [not null, default: `pending`, note: 'pending | sent | failed']
+  sent_at       Timestamptz
+  error         Text
+  created_at    Timestamptz [not null, default: `now()`]
+
+  Note: 'Cola de notificaciones post-asignación. Procesada por un worker.'
+}

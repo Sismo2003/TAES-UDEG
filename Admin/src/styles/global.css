@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  /* Acción y acento */
+  --color-primary: #2563eb;
+  --color-accent: #06b6d4;
+
+  /* Superficies */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f8fb;
+  --color-surface-sunken: #eef2f7;
+
+  /* Tinta */
+  --color-ink: #0f172a;
+  --color-ink-muted: #556074;
+  --color-ink-subtle: #94a3b8;
+
+  /* Bordes */
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+
+  /* Estados — semánticos, no "red-600" suelto en cada componente */
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-warning-ink: #92400e;
+  --color-danger: #dc2626;
+}
+
+html, body {
+  background-color: var(--color-surface-muted);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* La tabla scrollea dentro de su contenedor; la página nunca de costado. */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* Envíos en vivo: la fila recién llegada entra sin sobresaltar la vista. */
+@keyframes taev-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.taev-row-in {
+  animation: taev-row-in 0.35s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .taev-row-in {
+    animation: none;
+  }
+}

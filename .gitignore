@@ -1,0 +1,82 @@
+# =============================================================================
+#  TAEV-UDEG-PREPA2 — .gitignore raíz
+# -----------------------------------------------------------------------------
+#  Reglas globales. Cada subproyecto (Backend, Frontend, Admin) tiene sus
+#  exclusiones específicas en archivos locales si las necesita.
+# =============================================================================
+
+# ── Secrets (catch-all para cualquier subdirectorio) ─────────────────────────
+**/.env
+**/.env.*
+**/*.env
+!**/.env.example
+!**/.env.template
+
+# ── Sistema operativo ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editores / IDEs ──────────────────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# ── Dependencias ─────────────────────────────────────────────────────────────
+**/node_modules/
+
+# ── Artefactos de build ──────────────────────────────────────────────────────
+**/dist/
+**/build/
+**/.astro/
+**/.next/
+**/.nuxt/
+**/.output/
+**/.cache/
+**/.parcel-cache/
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/lerna-debug.log*
+
+# ── Coverage / testing ───────────────────────────────────────────────────────
+**/coverage/
+**/.nyc_output/
+
+# ── TypeScript ───────────────────────────────────────────────────────────────
+**/*.tsbuildinfo
+
+# ── Prisma — artefactos generados ───────────────────────────────────────────
+# Las migraciones SÍ se versionan. Los binarios del cliente NO.
+**/node_modules/.prisma/
+**/node_modules/@prisma/client/
+
+# ── User uploads (servir, no versionar; puede ser padrón real de alumnos) ────
+**/uploads/*
+!**/uploads/.gitkeep
+**/upload/*
+!**/upload/.gitkeep
+
+# ── Datos reales de alumnos (repo público — jamás CODIGO/NOMBRE reales) ──────
+**/*MATUTINO*
+**/*VESPERTINO*
+**/padron-real*
+**/*.xlsx
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+*.local
+.env.local
+.env.*.local
+
+# ── Claude Code / agentes ────────────────────────────────────────────────────
+.claude/worktrees/
+
+# ── Graphify: snapshots de respaldo fechados, se regeneran localmente ────────
+graphify-out/20*/
