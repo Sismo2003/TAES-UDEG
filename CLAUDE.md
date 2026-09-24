@@ -41,6 +41,7 @@ Qué sigue y en qué orden: [`Docs/ROADMAP.md`](Docs/ROADMAP.md).
 | Auth (JWT) + API Admin (`middlewares/auth.*`, `routes/admin.js`, `services/admin.*`) | ✅ Implementada — rol y campus re-validados contra la BD en cada request |
 | Allocator (`services/allocation.service.js`) | ✅ Implementado (de `DATABASE.md` §7.3) + overrides manuales |
 | Capa `Backend/models/` | ✅ Toda query vive acá; ningún controller ni service importa `prisma` |
+| Despliegue (`deploy/`, `.github/workflows/ci-cd.yml`) | ✅ En producción — ver `Docs/DEPLOY.md` |
 | Admin (SPA) | 🟡 Esenciales: semestres, padrón, catálogo, oferta/grupos, dashboard, bitácora, envíos en vivo, asignaciones. Pendientes: CSV, reportes, usuarios |
 
 ---
@@ -55,6 +56,8 @@ Qué sigue y en qué orden: [`Docs/ROADMAP.md`](Docs/ROADMAP.md).
 ├── Admin/            # Panel interno (Astro + React + Tailwind v4, SPA)
 ├── Docs/             # Documentación — empezar por TAEV-DOMAIN.md
 ├── Database/         # ERD (dbml), constraints SQL, test de regresión, seeds
+├── deploy/           # compose de producción, rollout.sh, trigger de CI, vhost nginx
+├── .github/workflows/ci-cd.yml  # checks → ghcr.io → rollout por Tailscale
 ├── .agents/skills/   # Convenciones que el agente debe seguir (ui, frontend, backend)
 ├── .gitignore
 ├── AGENTS.md         # contexto para agentes no-Claude
@@ -77,9 +80,21 @@ Qué sigue y en qué orden: [`Docs/ROADMAP.md`](Docs/ROADMAP.md).
 | Animación | Framer Motion (sitio público) |
 | Iconos | lucide-react |
 | Toasts | sonner |
-| Auth | **especificada, no implementada** — JWT para el panel admin, ver `Docs/DATABASE.md` §8 |
+| Auth | JWT (Bearer) para el panel admin, ver `Docs/DATABASE.md` §8 |
 | Tests | `node:test` nativo, sin deps (`npm test` en `Backend/`) |
 | SEO | **no se usa** — sitio público sin sitemap ni meta-tags avanzados |
+
+---
+
+## Producción
+
+| Dominio | Qué |
+|---|---|
+| `https://prepa2.grid.nimbuscloud.mx` | Portal de alumnos + `/api/taev/*` |
+| `https://admin.prepa2.grid.nimbuscloud.mx` | Panel admin + `/api/*` |
+
+Push a `main` → CI → despliegue automático. Arquitectura, secretos, rollback y
+operación: [`Docs/DEPLOY.md`](Docs/DEPLOY.md).
 
 ---
 
@@ -146,7 +161,7 @@ npm run dev                # http://localhost:4322
 - **UI**: tokens semánticos en `@theme` de `global.css`, primitivos
   reusables (Button, Modal, Badge) en `components/ui/`. Detalle en
   `.agents/skills/ui/SKILL.md`.
-- **Auth**: especificada en `Docs/DATABASE.md` §8, aún no implementada. JWT con
+- **Auth**: implementada según `Docs/DATABASE.md` §8. JWT con
   `JWT_SECRET` ≥ 32 chars en producción (el server no arranca si no se cumple),
   rol **y campus** re-validados contra la BD en cada request.
 - **Alcance por campus**: todo endpoint del panel verifica que el recurso
@@ -232,10 +247,10 @@ Reglas:
 
 ## Reglas duras
 
-1. **Sin Docker para desplegar la app / sin live demos** (a diferencia de otros
-   proyectos de la organización). Postgres local en contenedor sí — es el
-   quick-start del repo — igual que una base desechable para verificar una
-   migración. Lo que no se hace es containerizar el stack.
+1. **Despliegue sólo por CI/CD** (`Docs/DEPLOY.md`). Producción corre en
+   contenedores en el servidor `grid` detrás de `nginx-proxy`; las imágenes se
+   construyen **en GitHub Actions**, nunca en el servidor. Sin live demos.
+   Nunca tocar `deploy/.env` / `Backend/.env` del servidor desde el repo.
 2. **Sin SEO** en el Frontend.
 3. **Auth: no inventar.** Está especificada en `Docs/DATABASE.md` §8;
    implementarla siguiendo eso, no improvisar otro esquema.

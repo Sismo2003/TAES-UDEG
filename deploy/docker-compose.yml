@@ -1,0 +1,116 @@
+# =============================================================================
+#  deploy/docker-compose.yml — stack TAEV PREPA 2 en el servidor `grid`
+# -----------------------------------------------------------------------------
+#  Lo aplica deploy/rollout.sh; no se corre a mano salvo para depurar.
+#  Las imágenes NO se construyen aquí: llegan hechas desde ghcr.io (las compila
+#  .github/workflows/ci-cd.yml). El servidor sólo hace pull.
+#
+#  Redes:
+#    nginx          externa, compartida — ahí vive nginx-proxy, el único
+#                   contenedor con los puertos 80/443 del host.
+#    taev-internal  interna (sin ruta a internet) — sólo API ↔ Postgres.
+#
+#  Postgres NO publica puerto al host: nada fuera de la red interna necesita
+#  hablarle, y un `ports: 5432` lo expondría a toda la LAN.
+# =============================================================================
+
+# Nombre de proyecto EXPLÍCITO: por defecto Compose usa el nombre del
+# directorio ("deploy"), el mismo que usan /root/Nimbus-Cloud/deploy y
+# /root/cdidthat/deploy. Sin esto los stacks compartirían proyecto y un
+# `down --remove-orphans` en uno se llevaría los contenedores de los otros.
+name: taev-prepa2
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: taev-prepa2-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Sin esto la imagen inicializa con trust local y acepta cualquier
+      # contraseña desde la red del contenedor.
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      # Todo el dominio depende de instantes exactos (timestamptz); la zona de
+      # la sesión sólo afecta cómo psql los muestra, pero mejor la local.
+      TZ: America/Mexico_City
+      PGTZ: America/Mexico_City
+    volumes:
+      - taev_pgdata:/var/lib/postgresql/data
+    networks:
+      - taev-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    image: ghcr.io/sismo2003/taev-udeg-api:${TAEV_API_TAG:-latest}
+    container_name: taev-prepa2-api
+    restart: unless-stopped
+    init: true
+    env_file:
+      - ../Backend/.env
+    environment:
+      # Las credenciales de la BD salen de deploy/.env (una sola fuente, la
+      # misma que usa el contenedor db). Backend/.env no las repite.
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_SSL: "false"
+      NODE_ENV: production
+      PORT: "4000"
+    networks:
+      - taev-internal
+      - nginx
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    image: ghcr.io/sismo2003/taev-udeg-web:${TAEV_WEB_TAG:-latest}
+    container_name: taev-prepa2-web
+    restart: unless-stopped
+    networks:
+      - nginx
+    mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+
+  admin:
+    image: ghcr.io/sismo2003/taev-udeg-admin:${TAEV_ADMIN_TAG:-latest}
+    container_name: taev-prepa2-admin
+    restart: unless-stopped
+    networks:
+      - nginx
+    mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  nginx:
+    external: true
+  taev-internal:
+    internal: true
+    # Subred FIJA, no la que elija Docker. Los pools 172.17–31 del servidor ya
+    # están agotados y Docker cae a 192.168.x, pero la cadena DOCKER-USER del
+    # firewall sólo deja pasar tráfico entre contenedores de 172.16.0.0/12:
+    # con 192.168.x la API resuelve `db` pero el TCP se pierde en silencio.
+    ipam:
+      config:
+        - subnet: 172.16.42.0/24
+
+volumes:
+  taev_pgdata:

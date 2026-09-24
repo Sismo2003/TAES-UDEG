@@ -1,0 +1,253 @@
+# =============================================================================
+#  ci-cd.yml — Puerta de calidad + build + despliegue de TAEV PREPA 2
+# -----------------------------------------------------------------------------
+#  En ramas y PRs: sólo corren los checks.
+#  En push a main:  checks → build → publicar en ghcr.io → rollout en `grid`.
+#
+#  El build ocurre en los runners de GitHub, NUNCA en el servidor: `grid` es
+#  una máquina de casa compartida con muchos otros servicios. El servidor sólo
+#  hace `docker pull` de una imagen ya hecha.
+#
+#  Secrets (Settings → Secrets and variables → Actions → Secrets):
+#    TS_OAUTH_CLIENT_ID, TS_OAUTH_SECRET  — OAuth client de Tailscale (tag:ci),
+#                                           los mismos que NimbusCloud/CDIDTHAT
+#    SSH_HOST         100.88.25.60  (IP Tailscale de `grid`, nunca la pública)
+#    SSH_USER         grid-bot-git
+#    SSH_PORT         2222
+#    SSH_PRIVATE_KEY  llave PROPIA de este repo (su forced-command sólo dispara
+#                     el rollout de TAEV, no el de otros proyectos)
+#
+#  Publicar en ghcr.io NO necesita secret: basta el GITHUB_TOKEN automático.
+# =============================================================================
+name: CI/CD
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# En ramas/PRs se cancela la corrida vieja. En main NO: cancelar un despliegue
+# a medias dejaría el servidor en un estado indeterminado.
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  # En minúsculas a la fuerza: ghcr.io rechaza mayúsculas y el owner es
+  # "Sismo2003". Coincide con lo que referencia deploy/docker-compose.yml.
+  IMAGE_API:   ghcr.io/sismo2003/taev-udeg-api
+  IMAGE_WEB:   ghcr.io/sismo2003/taev-udeg-web
+  IMAGE_ADMIN: ghcr.io/sismo2003/taev-udeg-admin
+  PORTAL_URL:  https://prepa2.grid.nimbuscloud.mx
+  ADMIN_URL:   https://admin.prepa2.grid.nimbuscloud.mx
+
+jobs:
+  # ---------------------------------------------------------------- checks ---
+  backend:
+    name: Backend — migraciones + tests contra PostgreSQL
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
+    # Postgres real: los tests del allocator prueban justamente los CHECK y el
+    # advisory lock de la base. Sin base se saltarían en silencio.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: taev_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d taev_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      NODE_ENV: test
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_NAME: taev_ci
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_SSL: 'false'
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else-000000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Sintaxis de todos los .js
+        run: |
+          find . -name node_modules -prune -o -name '*.js' -print \
+            | xargs -r -n1 node --check
+
+      - name: Prisma generate
+        run: npm run prisma:generate
+
+      # Las migraciones se aplican sobre una base vacía exactamente como lo
+      # hará el rollout (`migrate deploy`). Una migración rota se detecta aquí
+      # y no a mitad del despliegue.
+      - name: Aplicar migraciones
+        run: npm run prisma:migrate:deploy
+
+      - name: Verificar constraints de la BD
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d taev_ci \
+            -v ON_ERROR_STOP=1 -f ../Database/scripts/verify_constraints.sql
+
+      - name: Tests
+        run: npm test
+
+  frontend:
+    name: Frontend — astro check + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: npm ci
+      # `npm run build` = `astro check && astro build`: el chequeo de tipos corre
+      # antes de construir ninguna imagen.
+      - run: npm run build
+        env:
+          PUBLIC_API_URL: ${{ env.PORTAL_URL }}
+
+  admin:
+    name: Admin — astro check + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Admin/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          PUBLIC_API_URL: ${{ env.ADMIN_URL }}
+          PUBLIC_PORTAL_URL: ${{ env.PORTAL_URL }}
+
+  # ------------------------------------------------------------ build+push ---
+  build-and-push:
+    name: Construir y publicar imágenes
+    needs: [backend, frontend, admin]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # El tag por commit hace posible un rollback exacto:
+      #   /root/TAES-UDEG/deploy/rollout.sh sha-<commit-anterior>
+      - name: Calcular tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build + push API
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_API }}:${{ steps.meta.outputs.tag }}
+            ${{ env.IMAGE_API }}:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      # PUBLIC_* se hornean en build (Astro compila a estático): van como
+      # build-args, no como variables del contenedor.
+      - name: Build + push Web (portal)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Frontend
+          push: true
+          build-args: |
+            PUBLIC_API_URL=${{ env.PORTAL_URL }}
+          tags: |
+            ${{ env.IMAGE_WEB }}:${{ steps.meta.outputs.tag }}
+            ${{ env.IMAGE_WEB }}:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Build + push Admin
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Admin
+          push: true
+          build-args: |
+            PUBLIC_API_URL=${{ env.ADMIN_URL }}
+            PUBLIC_PORTAL_URL=${{ env.PORTAL_URL }}
+          tags: |
+            ${{ env.IMAGE_ADMIN }}:${{ steps.meta.outputs.tag }}
+            ${{ env.IMAGE_ADMIN }}:latest
+          cache-from: type=gha,scope=admin
+          cache-to: type=gha,mode=max,scope=admin
+
+  # ---------------------------------------------------------------- deploy ---
+  rollout:
+    name: Desplegar en el servidor
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # El servidor NO expone SSH a internet: ufw sólo deja el 2222 desde el
+      # rango CGNAT de Tailscale. El runner entra a la tailnet como nodo
+      # efímero y desaparece al terminar el job.
+      - name: Conectar a Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret:    ${{ secrets.TS_OAUTH_SECRET }}
+          tags:            tag:ci
+          version:         latest
+
+      - name: Verificar alcance del servidor
+        run: |
+          echo "Runner en la tailnet como: $(tailscale ip -4)"
+          nc -z -w 10 "${{ secrets.SSH_HOST }}" "${{ secrets.SSH_PORT }}" \
+            || { echo "::error::No se alcanza el servidor por Tailscale. Revisa la ACL (tag:ci → grid:2222)."; exit 1; }
+
+      - name: Ejecutar rollout por SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host:     ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port:     ${{ secrets.SSH_PORT }}
+          key:      ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout:  30s
+          command_timeout: 15m
+          # Casi decorativo: la llave está atada a un forced-command
+          # (/usr/local/bin/taev-prepa2-deploy-trigger) que sólo extrae un tag.
+          script: rollout ${{ needs.build-and-push.outputs.tag }}
