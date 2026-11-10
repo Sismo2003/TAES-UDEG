@@ -46,10 +46,7 @@ export function TaevPortal({ shift }: { shift: Shift }) {
       <main className="flex-1 flex justify-center px-4 md:px-6 py-10 md:py-14">
         <div className="w-full max-w-md flex flex-col gap-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-(--color-ink-muted)">
-            Turno {SHIFT_LABEL[shift].toLowerCase()} ·{' '}
-            <a href="/" className="font-normal normal-case underline underline-offset-2 hover:text-(--color-ink)">
-              cambiar turno
-            </a>
+            Turno {SHIFT_LABEL[shift].toLowerCase()}
           </p>
           <StepTags screen={screen} />
           <AnimatePresence mode="wait">
