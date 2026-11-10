@@ -107,7 +107,7 @@ export const useSemesterStore = create<SemesterState>((set, get) => ({
     set({ isMutating: true });
     try {
       await endpoints.semester_setCurrent(id);
-      toast.success('Semestre marcado como activo del campus.');
+      toast.success('Semestre marcado como activo de su turno.');
       await get().loadSemesters(true);
       await get().select(id);
     } catch (err) {
@@ -121,7 +121,7 @@ export const useSemesterStore = create<SemesterState>((set, get) => ({
     set({ isMutating: true });
     try {
       await endpoints.semester_clearCurrent(id);
-      toast.success('Plataforma cerrada: ningún semestre activo.');
+      toast.success('Turno cerrado: ese link ya no acepta alumnos.');
       await get().loadSemesters(true);
       await get().refreshOverview();
     } catch (err) {

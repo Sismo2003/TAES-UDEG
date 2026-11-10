@@ -16,6 +16,7 @@ import * as offeringModel from '../models/offering.model.js';
 import * as submissionModel from '../models/submission.model.js';
 import { resolveSemesterWindow } from '../utils/semesterWindow.js';
 import { apiError } from '../utils/apiError.js';
+import { parseShift } from '../utils/shift.js';
 
 /**
  * Resuelve a qué campus apunta la request.
@@ -42,16 +43,40 @@ async function resolveCampus(campusCode) {
   throw apiError(400, 'CAMPUS_REQUIRED');
 }
 
+/**
+ * Resuelve el semestre activo del campus para el turno pedido.
+ *
+ *  1. Turno explícito (`/matutino`, `/vespertino`): el activo de ese turno, o
+ *     `null` si ese turno no tiene semestre activo.
+ *  2. Turno omitido + un solo turno activo: ese (compatibilidad con el link
+ *     viejo sin turno).
+ *  3. Turno omitido + ambos activos: 400 SHIFT_REQUIRED. NUNCA adivina.
+ */
+async function resolveSemester(campus, rawShift, client) {
+  const shift = parseShift(rawShift);
+  if (shift) return semesterModel.findCurrentByCampusShift(campus.id, shift, client);
+
+  const current = await semesterModel.listCurrentByCampus(campus.id, client);
+  if (current.length > 1) throw apiError(400, 'SHIFT_REQUIRED');
+  return current[0] ?? null;
+}
+
 /** GET /api/taev/status */
-export async function getStatus(campusCode) {
+export async function getStatus(campusCode, rawShift) {
   const campus = await resolveCampus(campusCode);
-  const semester = await semesterModel.findCurrentByCampus(campus.id);
+  const semester = await resolveSemester(campus, rawShift);
   const window = resolveSemesterWindow(semester ?? null, new Date());
 
   return {
     campus: { code: campus.code, name: campus.name },
+    shift: semester?.shift ?? parseShift(rawShift),
     semester: semester
-      ? { code: semester.code, label: semester.label, ranksRequired: semester.ranksRequired }
+      ? {
+          code: semester.code,
+          label: semester.label,
+          shift: semester.shift,
+          ranksRequired: semester.ranksRequired,
+        }
       : null,
     window,
     offerings: semester ? await offeringModel.listActiveBySemester(semester.id) : [],
@@ -59,13 +84,13 @@ export async function getStatus(campusCode) {
 }
 
 /** POST /api/taev/verify-code */
-export async function verifyCode(campusCode, code) {
+export async function verifyCode(campusCode, code, rawShift) {
   if (!TAEV_CONFIG.studentCodePattern.test(String(code ?? ''))) {
     throw apiError(400, 'INVALID_CODE_FORMAT');
   }
 
   const campus = await resolveCampus(campusCode);
-  const semester = await semesterModel.findCurrentByCampus(campus.id);
+  const semester = await resolveSemester(campus, rawShift);
   const window = resolveSemesterWindow(semester ?? null, new Date());
   if (!window.isOpen) throw apiError(403, window.reason);
 
@@ -76,6 +101,7 @@ export async function verifyCode(campusCode, code) {
   return {
     studentName: student.fullName,
     semesterLabel: semester.label,
+    shift: semester.shift,
     ranksRequired: semester.ranksRequired,
     offerings: await offeringModel.listActiveBySemester(semester.id),
   };
@@ -120,7 +146,7 @@ function assertPreferencesShape(preferences, ranksRequired) {
  * pasó a las 10:14:59 no puede enviar a las 10:20), el código se re-chequea y
  * las preferencias se validan contra la oferta activa antes de insertar.
  */
-export async function submitPreferences({ campusCode, code, preferences, ip, userAgent }) {
+export async function submitPreferences({ campusCode, shift, code, preferences, ip, userAgent }) {
   if (!TAEV_CONFIG.studentCodePattern.test(String(code ?? ''))) {
     throw apiError(400, 'INVALID_CODE_FORMAT');
   }
@@ -128,7 +154,7 @@ export async function submitPreferences({ campusCode, code, preferences, ip, use
   const campus = await resolveCampus(campusCode);
 
   return transaction(async (tx) => {
-    const semester = await semesterModel.findCurrentByCampus(campus.id, tx);
+    const semester = await resolveSemester(campus, shift, tx);
     const window = resolveSemesterWindow(semester ?? null, new Date());
     if (!window.isOpen) throw apiError(403, window.reason);
 
@@ -149,6 +175,7 @@ export async function submitPreferences({ campusCode, code, preferences, ip, use
 
     return {
       semesterLabel: semester.label,
+      shift: semester.shift,
       submittedAt: submission.submittedAt.toISOString(),
       preferences: preferences
         .slice()

@@ -89,6 +89,13 @@ Enum submission_status {
   unplaced
 }
 
+// Turno del semestre. Matutino y vespertino son ciclos independientes, cada
+// uno con su link en el portal (/matutino, /vespertino).
+Enum shift {
+  matutino
+  vespertino
+}
+
 // ─────────────────────────────────────────────────────────────
 // USERS — administradores del panel interno
 // ─────────────────────────────────────────────────────────────
@@ -126,9 +133,10 @@ Table users {
 Table semesters {
   id         Int         [pk, increment]
   campus_id  Int         [not null, ref: > campuses.id, note: 'La escuela dueña del ciclo']
-  code       Varchar     [not null, note: 'Ej. "2026A" — único DENTRO del campus']
+  code       Varchar     [not null, note: 'Ej. "2026A" — único DENTRO del campus y turno']
+  shift      shift       [not null, default: 'matutino', note: 'Turno. Cada turno es un semestre independiente con su link /matutino o /vespertino']
   label      Varchar     [not null, note: 'Ej. "2026-A" — lo que ve el alumno al terminar']
-  is_current Boolean     [not null, default: false, note: 'Semestre al que apunta el portal de ESTE campus. Índice único parcial por campus: sólo UNO por escuela puede tenerlo en true.']
+  is_current Boolean     [not null, default: false, note: 'Semestre al que apunta el portal de ESTE campus. Índice único parcial por (campus, turno): sólo UNO por escuela y turno puede tenerlo en true.']
 
   opens_at    Timestamptz          [not null, note: 'Inicio de la ventana']
   closes_at   Timestamptz          [not null, note: 'Fin de la ventana. Columna real, no derivada: la consulta usa índice.']
@@ -142,8 +150,8 @@ Table semesters {
   updated_at    Timestamptz [not null]
 
   Indexes {
-    (campus_id, code) [unique, note: '"2026A" existe una vez POR ESCUELA']
-    (campus_id, is_current)
+    (campus_id, code, shift) [unique, note: '"2026A" existe una vez POR ESCUELA Y TURNO']
+    (campus_id, shift, is_current)
     (opens_at, closes_at)
   }
 

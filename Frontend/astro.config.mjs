@@ -11,6 +11,9 @@ import path from 'path';
 // correspondiente (@astrojs/node para Node, @astrojs/vercel, etc.).
 export default defineConfig({
   output: 'static',
+  // `/matutino` → dist/matutino.html (no matutino/index.html): el nginx del
+  // contenedor lo resuelve con `$uri.html` sin redirigir a `/matutino/`.
+  build: { format: 'file' },
   integrations: [react()],
   server: {
     port: 4321,

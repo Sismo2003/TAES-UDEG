@@ -2,6 +2,7 @@ import { PageHeader, Card } from '../components/ui/PageHeader';
 import { Badge } from '../components/ui/Badge';
 import { useAuthStore } from '../stores/authStore';
 import { useSemesterStore } from '../stores/semesterStore';
+import { SHIFT_LABEL } from '../backend/connection';
 
 /**
  * Ajustes es hoy una pantalla de lectura: dice con qué sesión estás operando y
@@ -53,7 +54,7 @@ export function SettingsPage() {
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
               <dt className="text-(--color-ink-muted)">Código</dt>
               <dd>
-                {overview.semester.code} — {overview.semester.label}
+                {overview.semester.code} — {overview.semester.label} · {SHIFT_LABEL[overview.semester.shift]}
               </dd>
               <dt className="text-(--color-ink-muted)">Activo</dt>
               <dd>{overview.semester.isCurrent ? 'Sí' : 'No'}</dd>

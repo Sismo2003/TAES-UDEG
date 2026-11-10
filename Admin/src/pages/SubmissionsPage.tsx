@@ -11,13 +11,15 @@ import { useSemesterStore } from '../stores/semesterStore';
 import {
   endpoints,
   errorMessage,
+  portalShiftUrl,
+  PORTAL_URL,
+  SHIFT_LABEL,
   type Overview,
   type SubmissionRow,
 } from '../backend/connection';
 
 const PAGE_SIZE = 15;
 const REFRESH_MS = 30_000;
-const PORTAL_URL = import.meta.env.PUBLIC_PORTAL_URL || 'http://localhost:4321';
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -144,6 +146,7 @@ export function SubmissionsPage() {
   const [search, setSearch] = useState('');
 
   const [overview, setOverview] = useState<Overview | null>(null);
+  const portalUrl = overview ? portalShiftUrl(overview.semester.shift) : PORTAL_URL;
   const serverOffsetRef = useRef(0);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
@@ -360,13 +363,17 @@ export function SubmissionsPage() {
             </Card>
           </div>
 
+          {/* El QR lleva al link del TURNO del semestre seleccionado. */}
           <Card className="p-3 flex items-center gap-3">
             <div className="rounded-lg bg-white p-2">
-              <QRCodeSVG value={PORTAL_URL} size={104} marginSize={0} />
+              <QRCodeSVG value={portalUrl} size={104} marginSize={0} />
             </div>
             <div className="text-xs text-(--color-ink-muted) max-w-[9rem]">
-              <p className="font-semibold text-(--color-ink)">Escanea para registrarte</p>
-              <p className="mt-1 break-all">{PORTAL_URL}</p>
+              <p className="font-semibold text-(--color-ink)">
+                Escanea para registrarte
+                {overview && ` · turno ${SHIFT_LABEL[overview.semester.shift].toLowerCase()}`}
+              </p>
+              <p className="mt-1 break-all">{portalUrl}</p>
             </div>
           </Card>
         </div>
@@ -393,7 +400,8 @@ export function SubmissionsPage() {
           <h2 className="text-xl font-bold tracking-tight">Envíos en vivo</h2>
           {overview && (
             <p className="text-xs text-(--color-ink-muted) mt-0.5">
-              {overview.semester.code} — {overview.semester.label}
+              {overview.semester.code} — {overview.semester.label} ·{' '}
+              {SHIFT_LABEL[overview.semester.shift]}
             </p>
           )}
         </div>

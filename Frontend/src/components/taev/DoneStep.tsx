@@ -3,9 +3,11 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { useTaevStore } from '../../stores/taevStore';
+import { SHIFT_LABEL } from '../../backend/connection';
 
 export function DoneStep() {
   const semesterLabel = useTaevStore((s) => s.semesterLabel);
+  const shift = useTaevStore((s) => s.shift);
   const preferences = useTaevStore((s) => s.submittedPreferences);
   const reset = useTaevStore((s) => s.reset);
 
@@ -14,7 +16,8 @@ export function DoneStep() {
       <CircleCheck size={44} className="mx-auto mb-3 text-(--color-primary)" strokeWidth={1.5} />
       <div className="text-lg font-heading font-semibold">¡Registro enviado con éxito!</div>
       <p className="text-sm text-(--color-ink-muted) mt-2">
-        Tu selección de TAEV quedó registrada para el semestre {semesterLabel}.
+        Tu selección de TAEV quedó registrada para el semestre {semesterLabel}, turno{' '}
+        {SHIFT_LABEL[shift].toLowerCase()}.
       </p>
       <div className="flex flex-col gap-1.5 my-4 text-left">
         {preferences.map((item) => (

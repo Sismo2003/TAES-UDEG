@@ -22,7 +22,7 @@ function fail(res, err, tag) {
 
 export const status = async (req, res) => {
   try {
-    const data = await taev.getStatus(req.query.campus);
+    const data = await taev.getStatus(req.query.campus, req.query.shift);
     return res.status(200).json({ data });
   } catch (err) {
     return fail(res, err, 'status');
@@ -31,8 +31,8 @@ export const status = async (req, res) => {
 
 export const verifyCode = async (req, res) => {
   try {
-    const { code, campus } = req.body ?? {};
-    const data = await taev.verifyCode(campus, code);
+    const { code, campus, shift } = req.body ?? {};
+    const data = await taev.verifyCode(campus, code, shift);
     return res.status(200).json({ data, message: 'CODE_OK' });
   } catch (err) {
     return fail(res, err, 'verifyCode');
@@ -41,9 +41,10 @@ export const verifyCode = async (req, res) => {
 
 export const submit = async (req, res) => {
   try {
-    const { code, campus, preferences } = req.body ?? {};
+    const { code, campus, shift, preferences } = req.body ?? {};
     const data = await taev.submitPreferences({
       campusCode: campus,
+      shift,
       code,
       preferences,
       ip: req.ip,

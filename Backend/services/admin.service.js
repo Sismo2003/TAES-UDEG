@@ -27,6 +27,7 @@ import {
   scopeCampusId,
 } from '../middlewares/campusScope.middleware.js';
 import { apiError } from '../utils/apiError.js';
+import { parseShift, SHIFTS } from '../utils/shift.js';
 
 const WINDOW_MODES = new Set(['scheduled', 'force_open', 'force_closed']);
 
@@ -56,9 +57,24 @@ export async function getSemester(user, semesterId) {
 }
 
 /**
+ * Resuelve los turnos a crear: `shifts: ['matutino','vespertino']` (los dos de
+ * una vez, lo habitual) o `shift: 'matutino'` (uno). Al menos uno, sin repetir.
+ */
+function parseShiftsToCreate(body) {
+  const raw = Array.isArray(body.shifts) ? body.shifts : [body.shift];
+  const shifts = [...new Set(raw.map(parseShift).filter(Boolean))];
+  if (shifts.length === 0) throw apiError(400, 'SHIFT_REQUIRED');
+  return SHIFTS.filter((s) => shifts.includes(s));
+}
+
+/**
  * Crea un semestre. El admin piensa en "abre a las 10:00 y dura N minutos":
  * se acepta `durationMinutes` y se deriva `closesAt` en un solo lugar
  * (`deriveClosesAt`). `closesAt` explícito también se acepta.
+ *
+ * Turnos: con `shifts` se crea un semestre por turno (mismo código, misma
+ * ventana — cada uno se edita después por separado) en UNA transacción, y se
+ * devuelve un array. Con `shift` se crea uno solo y se devuelve el objeto.
  */
 export async function createSemester(user, body, ip) {
   const campusId = isGlobalScope(user) ? Number(body.campusId) : user.campusId;
@@ -67,6 +83,7 @@ export async function createSemester(user, body, ip) {
 
   const { code, label, opensAt } = body;
   if (!code || !label || !opensAt) throw apiError(400, 'MISSING_FIELDS');
+  const shifts = parseShiftsToCreate(body);
 
   const opens = new Date(opensAt);
   if (Number.isNaN(opens.getTime())) throw apiError(400, 'INVALID_DATE');
@@ -88,34 +105,40 @@ export async function createSemester(user, body, ip) {
   }
 
   try {
-    return await transaction(async (tx) => {
-      const semester = await semesterModel.create(
-        {
-          campusId,
-          code: String(code),
-          label: String(label),
-          opensAt: opens,
-          closesAt: closes,
-          windowMode: WINDOW_MODES.has(body.windowMode) ? body.windowMode : 'scheduled',
-          ranksRequired,
-          notes: body.notes ?? null,
-          createdById: user.id,
-        },
-        tx,
-      );
-      await auditModel.write(
-        {
-          userId: user.id,
-          action: 'semester.create',
-          entityType: 'semester',
-          entityId: semester.id,
-          payload: { code: semester.code, campusId },
-          ip,
-        },
-        tx,
-      );
-      return semester;
+    const created = await transaction(async (tx) => {
+      const rows = [];
+      for (const shift of shifts) {
+        const semester = await semesterModel.create(
+          {
+            campusId,
+            code: String(code),
+            label: String(label),
+            shift,
+            opensAt: opens,
+            closesAt: closes,
+            windowMode: WINDOW_MODES.has(body.windowMode) ? body.windowMode : 'scheduled',
+            ranksRequired,
+            notes: body.notes ?? null,
+            createdById: user.id,
+          },
+          tx,
+        );
+        await auditModel.write(
+          {
+            userId: user.id,
+            action: 'semester.create',
+            entityType: 'semester',
+            entityId: semester.id,
+            payload: { code: semester.code, shift, campusId },
+            ip,
+          },
+          tx,
+        );
+        rows.push(semester);
+      }
+      return rows;
     });
+    return Array.isArray(body.shifts) ? created : created[0];
   } catch (err) {
     if (err?.code === 'P2002') throw apiError(409, 'SEMESTER_CODE_TAKEN');
     throw err;
@@ -188,12 +211,13 @@ export async function changeWindowMode(user, semesterId, mode, ip) {
   });
 }
 
-/** Marca el semestre como activo del campus; apaga el que estuviera. */
+/** Marca el semestre como activo de su campus y turno; apaga el que estuviera
+ *  activo en ESE turno (el otro turno no se toca). */
 export async function setCurrentSemester(user, semesterId, ip) {
   const target = await loadSemesterScoped(user, semesterId);
 
   return transaction(async (tx) => {
-    await semesterModel.unsetCurrentExcept(target.campusId, target.id, tx);
+    await semesterModel.unsetCurrentExcept(target.campusId, target.shift, target.id, tx);
     const semester = await semesterModel.updateById(target.id, { isCurrent: true }, tx);
     await auditModel.write(
       {
@@ -201,7 +225,7 @@ export async function setCurrentSemester(user, semesterId, ip) {
         action: 'semester.set_current',
         entityType: 'semester',
         entityId: semester.id,
-        payload: { campusId: target.campusId },
+        payload: { campusId: target.campusId, shift: target.shift },
         ip,
       },
       tx,
@@ -211,7 +235,7 @@ export async function setCurrentSemester(user, semesterId, ip) {
 }
 
 /**
- * Quita el semestre activo del campus: el portal público queda SIN semestre y
+ * Quita el semestre activo del campus en su turno: ese link del portal queda SIN semestre y
  * deja de aceptar alumnos (`resolveSemesterWindow(null)` ⇒ `NO_ACTIVE_SEMESTER`).
  * Es distinto del kill switch (`force_closed`), que cierra pero mantiene el
  * semestre a la vista. Los envíos ya registrados no se tocan.
@@ -253,6 +277,7 @@ export async function semesterOverview(user, semesterId) {
       id: semester.id,
       code: semester.code,
       label: semester.label,
+      shift: semester.shift,
       isCurrent: semester.isCurrent,
       ranksRequired: semester.ranksRequired,
       windowMode: semester.windowMode,

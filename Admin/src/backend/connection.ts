@@ -97,11 +97,30 @@ export interface Campus {
   isActive: boolean;
 }
 
+/** Turno: cada uno es un semestre independiente con su propio link en el portal. */
+export type Shift = 'matutino' | 'vespertino';
+
+export const SHIFTS: Shift[] = ['matutino', 'vespertino'];
+
+export const SHIFT_LABEL: Record<Shift, string> = {
+  matutino: 'Matutino',
+  vespertino: 'Vespertino',
+};
+
+/** URL pública del portal de alumnos (se hornea en build). */
+export const PORTAL_URL: string = import.meta.env.PUBLIC_PORTAL_URL || 'http://localhost:4321';
+
+/** Link que se comparte con los alumnos de un turno: `<portal>/matutino`. */
+export function portalShiftUrl(shift: Shift): string {
+  return `${PORTAL_URL.replace(/\/+$/, '')}/${shift}`;
+}
+
 export interface SemesterRow {
   id: number;
   campusId: number;
   code: string;
   label: string;
+  shift: Shift;
   isCurrent: boolean;
   opensAt: string;
   closesAt: string;
@@ -209,6 +228,7 @@ export interface Overview {
     id: number;
     code: string;
     label: string;
+    shift: Shift;
     isCurrent: boolean;
     ranksRequired: number;
     windowMode: WindowMode;
@@ -235,6 +255,8 @@ export interface SemesterInput {
   campusId?: number;
   code: string;
   label: string;
+  /** Alta: un semestre por turno (mismo código), en una sola transacción. */
+  shifts?: Shift[];
   opensAt: string;
   closesAt?: string;
   durationMinutes?: number;
@@ -269,8 +291,9 @@ export const endpoints = {
   // Semestres
   semesters_list: () => request<SemesterRow[]>(api.get(`${ADMIN}/semesters`)),
   semester_get: (id: number) => request<SemesterRow>(api.get(`${ADMIN}/semesters/${id}`)),
-  semester_create: (body: SemesterInput) =>
-    request<SemesterRow>(api.post(`${ADMIN}/semesters`, body)),
+  /** Con `shifts` el backend crea uno por turno y devuelve el array. */
+  semester_create: (body: SemesterInput & { shifts: Shift[] }) =>
+    request<SemesterRow[]>(api.post(`${ADMIN}/semesters`, body)),
   semester_update: (id: number, body: Partial<SemesterInput>) =>
     request<SemesterRow>(api.patch(`${ADMIN}/semesters/${id}`, body)),
   semester_window: (id: number, windowMode: WindowMode) =>

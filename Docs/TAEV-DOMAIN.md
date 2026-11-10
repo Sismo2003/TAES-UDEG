@@ -166,11 +166,16 @@ admin.
 
 - **Padrón, oferta, grupos, envíos y asignaciones son siempre *de* un
   semestre** — y por lo tanto de un campus.
-- **Un semestre activo por escuela.** El alumno que entra al portal siempre
-  interactúa con el semestre marcado como actual de su campus. La base
-  garantiza que no pueda haber dos: si hubiera, "el semestre activo" sería
-  ambiguo y el sistema devolvería resultados no deterministas en el peor
-  momento posible.
+- **Un semestre activo por escuela y turno.** Cada semestre es de un turno
+  (`matutino` o `vespertino`) y los dos turnos corren ciclos **independientes**:
+  padrón, oferta, grupos, cupos y ventana propios. Al crear un semestre se
+  crean normalmente los dos (mismo código, p. ej. `2026A` matutino y `2026A`
+  vespertino). Cada turno tiene su link en el portal: `/matutino` y
+  `/vespertino`; la raíz `/` sólo ofrece elegir turno. El alumno que entra a
+  un link siempre interactúa con el semestre actual de ese turno. La base
+  garantiza que no pueda haber dos activos en el mismo turno: si hubiera, "el
+  semestre activo" sería ambiguo y el sistema devolvería resultados no
+  deterministas en el peor momento posible.
 - **Los códigos NO son globales, son por semestre.** El alumno `218327451`
   puede ser válido en `2026A` y no en `2026B` (egresó, cambió de plantel…).
 - **El catálogo de asignaturas sí es global.** El admin reutiliza "Robótica"

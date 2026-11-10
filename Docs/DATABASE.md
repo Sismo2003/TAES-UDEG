@@ -197,6 +197,12 @@ El alumno teclea 9 dígitos y nada más. El campus se resuelve así:
 3. **Ambiguo** — si se omite y hay más de un campus con semestre activo, la
    API responde `400 CAMPUS_REQUIRED`. **Nunca adivina.**
 
+El **turno** se resuelve igual, con `?shift=` / `body.shift` (`matutino` |
+`vespertino`), que el portal manda siempre según la página (`/matutino`,
+`/vespertino`). Si se omite y el campus tiene un solo turno activo, se usa ese;
+si tiene los dos, `400 SHIFT_REQUIRED`. Un valor desconocido es
+`400 INVALID_SHIFT`.
+
 No se resuelve por el código del alumno: los códigos son únicos por padrón, no
 entre campus, y apoyarse en que no colisionen es una bomba de tiempo.
 
@@ -243,9 +249,10 @@ CHECK: `code ~ '^[a-z0-9]+(-[a-z0-9]+)*$'` — un admin no puede crear
 |---|---|---|
 | `id` | `int PK` | |
 | `campus_id` | `FK campuses.id NOT NULL` | la escuela dueña del ciclo |
-| `code` | `varchar(16)` | `"2026A"` — **único por campus** |
+| `code` | `varchar(16)` | `"2026A"` — **único por campus y turno** |
 | `label` | `varchar(64)` | `"2026-A"` — lo que ve el alumno al terminar |
-| `is_current` | `bool` | default `false` — a qué semestre apunta el portal |
+| `shift` | `enum(matutino, vespertino)` | default `matutino` (sólo para el backfill; la API lo exige) — cada turno es un semestre independiente con su link `/matutino` o `/vespertino` |
+| `is_current` | `bool` | default `false` — a qué semestre apunta el link de ese turno |
 | `opens_at` | `timestamptz` | inicio de la ventana |
 | `closes_at` | `timestamptz` | fin de la ventana — **columna real, no derivada** |
 | `window_mode` | `enum(scheduled, force_open, force_closed)` | default `scheduled` |
@@ -255,11 +262,12 @@ CHECK: `code ~ '^[a-z0-9]+(-[a-z0-9]+)*$'` — un admin no puede crear
 | `created_at`, `updated_at` | `timestamptz` | |
 
 Constraints:
-- `UNIQUE (campus_id, code)`
+- `UNIQUE (campus_id, code, shift)`
 - `CHECK (closes_at > opens_at)`
 - `CHECK (ranks_required BETWEEN 1 AND 10)`
-- `CREATE UNIQUE INDEX ... ON semesters (campus_id) WHERE is_current`
-  — **un semestre activo por escuela**.
+- `CREATE UNIQUE INDEX semesters_single_current_per_campus_shift ON semesters (campus_id, shift) WHERE is_current`
+  — **un semestre activo por escuela y turno** (migración
+  `20261110120000_semester_shift`; antes era sólo por escuela).
 
 **Por qué `closes_at` y no `duration_minutes`:** guardar la duración obliga a
 recalcular `opens_at + duration` en cada lectura, lo que impide usar índice y
@@ -738,7 +746,7 @@ array en éxito; `false` en fallo.
 
 | Método | Path | Función |
 |---|---|---|
-| `GET` | `/api/taev/status` | Estado de la ventana + `serverTime` + `ranksRequired` + asignaturas ofrecidas. Acepta `?campus=prepa-2` |
+| `GET` | `/api/taev/status` | Estado de la ventana + `serverTime` + `ranksRequired` + asignaturas ofrecidas. Acepta `?campus=prepa-2&shift=matutino` (`verify-code` y `submit` aceptan `shift` en el body) |
 | `POST` | `/api/taev/verify-code` | `code` → ¿puede continuar? |
 | `POST` | `/api/taev/submit` | Crea `form_submissions` + preferencias en una transacción |
 
@@ -773,8 +781,8 @@ el Frontend ramifica por el `message` machine-readable.
 | `POST` · `PATCH` | `/api/admin/subjects[/:id]` | alta y edición en el catálogo |
 | `POST` · `GET` · `PATCH` | `/api/admin/semesters[/:id]` | CRUD de semestres |
 | `PATCH` | `/api/admin/semesters/:id/window` | cambiar `window_mode` — **el kill switch** |
-| `PATCH` | `/api/admin/semesters/:id/current` | marcar como semestre activo del campus |
-| `DELETE` | `/api/admin/semesters/:id/current` | quitar el semestre activo — el campus queda sin ninguno y el portal cierra (`NO_ACTIVE_SEMESTER`); `409` si el semestre no era el activo |
+| `PATCH` | `/api/admin/semesters/:id/current` | marcar como semestre activo de su campus **y turno** (el otro turno no se toca) |
+| `DELETE` | `/api/admin/semesters/:id/current` | quitar el semestre activo de ese turno — el link del turno cierra (`NO_ACTIVE_SEMESTER`); `409` si el semestre no era el activo |
 | `GET` | `/api/admin/semesters/:id/students` | padrón — **paginado**, `?page=&pageSize=&search=&isActive=&hasSubmission=&sort=` |
 | `POST` | `/api/admin/semesters/:id/students` | alta individual en el padrón |
 | `PATCH` · `DELETE` | `/api/admin/semesters/:id/students/:studentId` | editar / dar de baja |

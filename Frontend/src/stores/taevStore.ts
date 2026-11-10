@@ -5,6 +5,7 @@ import {
   endpoints,
   type ApiError,
   type Offering,
+  type Shift,
   type WindowState,
 } from '../backend/connection';
 
@@ -90,6 +91,9 @@ interface TaevState {
   window: WindowState | null;
 
   campusName: string;
+  /** Turno de esta página (`/matutino`, `/vespertino`). Lo fija la página
+   *  Astro antes de `init`; viaja en cada request. */
+  shift: Shift;
   semesterLabel: string;
   ranksRequired: number;
   offerings: Offering[];
@@ -103,6 +107,7 @@ interface TaevState {
   submittedAt: string;
   submittedPreferences: SubmittedPreference[];
 
+  setShift: (shift: Shift) => void;
   init: (opts?: { silent?: boolean }) => Promise<void>;
   setCode: (code: string) => void;
   submitCode: () => Promise<void>;
@@ -125,6 +130,7 @@ export const useTaevStore = create<TaevState>((set, get) => ({
   clockOffsetMs: 0,
   window: null,
   campusName: '',
+  shift: 'matutino',
   semesterLabel: '',
   ranksRequired: 0,
   offerings: [],
@@ -135,10 +141,12 @@ export const useTaevStore = create<TaevState>((set, get) => ({
   submittedAt: '',
   submittedPreferences: [],
 
+  setShift: (shift) => set({ shift }),
+
   init: async ({ silent = false } = {}) => {
     if (!silent) set({ screen: 'loading' });
     try {
-      const { data } = await endpoints.taev_status(CAMPUS);
+      const { data } = await endpoints.taev_status(CAMPUS, get().shift);
       const offset = new Date(data.window.serverTime).getTime() - Date.now();
       if (silent) await sleep(1000);
 
@@ -180,7 +188,7 @@ export const useTaevStore = create<TaevState>((set, get) => ({
 
     set({ isSubmitting: true });
     try {
-      const { data } = await endpoints.taev_verifyCode(code, CAMPUS);
+      const { data } = await endpoints.taev_verifyCode(code, CAMPUS, get().shift);
       await sleep(1000);
       set({
         studentName: data.studentName,
@@ -225,7 +233,7 @@ export const useTaevStore = create<TaevState>((set, get) => ({
 
     set({ isSubmitting: true });
     try {
-      const { data } = await endpoints.taev_submit(get().code, preferences, CAMPUS);
+      const { data } = await endpoints.taev_submit(get().code, preferences, CAMPUS, get().shift);
       set({
         screen: 'done',
         isSubmitting: false,

@@ -82,11 +82,14 @@ ON CONFLICT (code) DO NOTHING;
 --                                                  closes_at = now() - interval '1 hour',
 --                                                  window_mode = 'scheduled' WHERE code = '2026A';
 
-INSERT INTO semesters (campus_id, code, label, is_current, opens_at, closes_at,
+-- Turno matutino (link /matutino). El demo no siembra vespertino: crealo desde
+-- el panel (Nuevo semestre → ambos turnos) para probar los dos links.
+INSERT INTO semesters (campus_id, code, label, shift, is_current, opens_at, closes_at,
                        window_mode, ranks_required, notes, created_by_id, created_at, updated_at)
 SELECT c.id,
        '2026A',
        '2026-A',
+       'matutino',
        TRUE,
        now() - interval '5 minutes',
        now() + interval '2 hours',
@@ -98,7 +101,7 @@ SELECT c.id,
   FROM campuses c
   JOIN users u ON u.email = 'admin@prepa2.local'
  WHERE c.code = 'prepa-2'
-ON CONFLICT (campus_id, code) DO NOTHING;
+ON CONFLICT (campus_id, code, shift) DO NOTHING;
 
 
 -- ── Oferta del semestre: las 7 asignaturas ──────────────────────────────────

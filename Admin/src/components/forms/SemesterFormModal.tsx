@@ -6,7 +6,14 @@ import { Button } from '../ui/Button';
 import { errorTextClass, inputClass, inputErrorClass, labelClass, selectClass } from '../ui/formStyles';
 import { cn } from '../../lib/cn';
 import { fromLocalInputValue, minutesBetween, toLocalInputValue } from '../../lib/dates';
-import type { Campus, SemesterInput, SemesterRow } from '../../backend/connection';
+import {
+  SHIFT_LABEL,
+  SHIFTS,
+  type Campus,
+  type SemesterInput,
+  type SemesterRow,
+  type Shift,
+} from '../../backend/connection';
 
 const schema = yup.object({
   campusId: yup.number().nullable().default(null),
@@ -32,6 +39,14 @@ const schema = yup.object({
     .min(1, 'Al menos 1.')
     .max(10, 'Máximo 10.'),
   notes: yup.string().max(1000).default(''),
+  // Sólo en alta. Lo habitual es abrir los dos turnos a la vez.
+  shifts: yup
+    .array(yup.string<Shift>().oneOf(SHIFTS).required())
+    .default([])
+    .when('$isNew', {
+      is: true,
+      then: (s) => s.min(1, 'Elegí al menos un turno.'),
+    }),
 });
 
 type FormValues = yup.InferType<typeof schema>;
@@ -65,7 +80,9 @@ export function SemesterFormModal({
     formState: { errors },
   } = useForm<FormValues>({
     resolver: yupResolver(schema),
+    context: { isNew: !semester },
     defaultValues: {
+      shifts: semester ? [] : [...SHIFTS],
       campusId: semester?.campusId ?? campuses[0]?.id ?? null,
       code: semester?.code ?? '',
       label: semester?.label ?? '',
@@ -81,6 +98,7 @@ export function SemesterFormModal({
       ...(needsCampus && values.campusId ? { campusId: Number(values.campusId) } : {}),
       code: values.code.toUpperCase(),
       label: values.label,
+      ...(semester ? {} : { shifts: values.shifts }),
       opensAt: fromLocalInputValue(values.opensAt),
       durationMinutes: values.durationMinutes,
       ranksRequired: values.ranksRequired,
@@ -90,8 +108,12 @@ export function SemesterFormModal({
 
   return (
     <Modal
-      title={semester ? `Editar ${semester.code}` : 'Nuevo semestre'}
-      description="La ventana de envío se define como hora de apertura + duración en minutos."
+      title={semester ? `Editar ${semester.code} · ${SHIFT_LABEL[semester.shift]}` : 'Nuevo semestre'}
+      description={
+        semester
+          ? 'La ventana de envío se define como hora de apertura + duración en minutos. Los cambios aplican sólo a este turno.'
+          : 'Se crea un semestre por turno, cada uno con su propio link, padrón, oferta y cupos. La ventana se define como hora de apertura + duración; después podés ajustar la de cada turno por separado.'
+      }
       onClose={onClose}
       size="lg"
       footer={
@@ -125,6 +147,22 @@ export function SemesterFormModal({
               ))}
             </select>
           </div>
+        )}
+
+        {!semester && (
+          <fieldset className="sm:col-span-2">
+            <legend className={labelClass}>Turnos *</legend>
+            <div className="flex flex-wrap gap-4 mt-1">
+              {SHIFTS.map((shift) => (
+                <label key={shift} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" value={shift} {...register('shifts')} />
+                  {SHIFT_LABEL[shift]}
+                  <span className="text-xs text-(--color-ink-muted)">(/{shift})</span>
+                </label>
+              ))}
+            </div>
+            {errors.shifts && <p className={errorTextClass}>{errors.shifts.message}</p>}
+          </fieldset>
         )}
 
         <div>

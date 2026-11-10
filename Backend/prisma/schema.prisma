@@ -62,6 +62,16 @@ enum SemesterWindowMode {
   @@map("semester_window_mode")
 }
 
+/// Turno de un semestre. Matutino y vespertino corren ciclos INDEPENDIENTES:
+/// cada turno es su propio semestre (padrón, oferta, grupos, cupos y ventana
+/// separados) y tiene su propio link en el portal (`/matutino`, `/vespertino`).
+enum Shift {
+  matutino
+  vespertino
+
+  @@map("shift")
+}
+
 /// Estados de un envío. Sólo se declaran los estados que el allocator
 /// REALMENTE produce: en PostgreSQL no se puede eliminar un valor de un enum
 /// una vez creado, así que nada de valores "por si acaso".
@@ -155,12 +165,18 @@ model Semester {
   /// su ventana, su padrón, su oferta y sus cupos son independientes.
   campusId Int @map("campus_id")
 
-  code  String @db.VarChar(16) /// "2026A" — único DENTRO del campus
+  code  String @db.VarChar(16) /// "2026A" — único DENTRO del campus y turno
   label String @db.VarChar(64) /// "2026-A" — lo que ve el alumno al terminar
 
-  /// Semestre al que apunta el portal público de ESTE campus. Exactamente uno
-  /// por campus puede tenerlo en true: lo garantiza el índice único parcial
-  /// `semesters_single_current_per_campus` de 002_constraints.sql. Sin eso,
+  /// Turno. "2026A matutino" y "2026A vespertino" son dos semestres distintos
+  /// con el mismo `code`. El default sólo existe para el backfill de los
+  /// semestres creados antes de que hubiera turnos; la API lo exige explícito.
+  shift Shift @default(matutino)
+
+  /// Semestre al que apunta el portal público de ESTE campus y turno. A lo
+  /// sumo uno por (campus, turno) puede tenerlo en true: lo garantiza el índice
+  /// único parcial `semesters_single_current_per_campus_shift` de
+  /// 002_constraints.sql. Sin eso,
   /// "el semestre activo" es ambiguo y las consultas del alumno devuelven lo
   /// que el planner decida.
   isCurrent Boolean @default(false) @map("is_current")
@@ -189,9 +205,9 @@ model Semester {
   submissions FormSubmission[]
   preferences SubmissionPreference[]
 
-  /// "2026A" existe una vez POR ESCUELA, no una vez en todo el sistema.
-  @@unique([campusId, code])
-  @@index([campusId, isCurrent])
+  /// "2026A" existe una vez POR ESCUELA Y TURNO, no una vez en todo el sistema.
+  @@unique([campusId, code, shift])
+  @@index([campusId, shift, isCurrent])
   @@index([opensAt, closesAt])
   @@map("semesters")
 }

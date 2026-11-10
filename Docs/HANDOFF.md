@@ -254,18 +254,24 @@ Envelope del proyecto: `{ data, message }`. En fallo, `data: false` y `message`
 es una sentencia **`UPPER_SNAKE_CASE`** que el Frontend matchea (no se muestra
 literal al alumno).
 
-### `GET /api/taev/status?campus=prepa-2`
+### `GET /api/taev/status?campus=prepa-2&shift=matutino`
 
 Lo primero que llama el portal al montar. `campus` es opcional: si se omite y
 hay **exactamente un** campus con semestre activo, se resuelve solo (el caso de
 hoy). Si hay más de uno, `400 CAMPUS_REQUIRED`. **Nunca adivinar.**
+
+`shift` (`matutino` | `vespertino`) elige el turno; el portal lo manda siempre
+según la página (`/matutino`, `/vespertino`). Omitido con los dos turnos
+activos ⇒ `400 SHIFT_REQUIRED`. `verify-code` y `submit` llevan `shift` en el
+body. La respuesta agrega `shift` (raíz y `semester.shift`).
 
 ```jsonc
 // 200
 {
   "data": {
     "campus":   { "code": "prepa-2", "name": "Preparatoria No. 2" },
-    "semester": { "code": "2026A", "label": "2026-A", "ranksRequired": 3 },
+    "shift":    "matutino",
+    "semester": { "code": "2026A", "label": "2026-A", "shift": "matutino", "ranksRequired": 3 },
     "window": {
       "isOpen": true,
       "reason": "OPEN_SCHEDULED",

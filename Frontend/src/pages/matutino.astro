@@ -1,0 +1,8 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { TaevPortal } from '../components/taev/TaevPortal';
+---
+
+<Layout title="Portal TAEV — Prepa 2 UDG · Turno matutino" description="Registro de preferencias TAEV, turno matutino, Preparatoria 2 de la Universidad de Guadalajara.">
+  <TaevPortal client:load shift="matutino" />
+</Layout>

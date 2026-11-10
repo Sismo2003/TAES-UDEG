@@ -1,3 +1,4 @@
+import { SHIFT_LABEL } from '../../backend/connection';
 import { useSemesterStore } from '../../stores/semesterStore';
 import { selectClass } from '../ui/formStyles';
 import { cn } from '../../lib/cn';
@@ -25,7 +26,7 @@ export function SemesterSwitcher() {
       >
         {semesters.map((s) => (
           <option key={s.id} value={s.id}>
-            {s.code} — {s.label}
+            {s.code} — {s.label} · {SHIFT_LABEL[s.shift]}
             {s.isCurrent ? ' (activo)' : ''}
           </option>
         ))}

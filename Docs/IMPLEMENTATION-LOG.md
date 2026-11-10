@@ -970,3 +970,57 @@ CLAUDE.md                    fila "Admin (SPA)" de la tabla de estado
   los alumnos del grupo. Consultas #1 y #3 de `002_constraints.sql` (deriva del
   contador y estados incoherentes) en **cero filas** después de cada operación.
 - **Sin prueba de navegador.**
+
+---
+
+## Turnos matutino / vespertino — un link por turno — 2026-11-10
+
+**Qué cambió.** Antes había un semestre activo por campus y un solo link
+(`/`). Ahora cada semestre es de un **turno** y los turnos son ciclos
+independientes (padrón, oferta, grupos, cupos y ventana propios). Puede haber
+un semestre activo por (campus, turno) y cada turno tiene su link:
+
+- `https://prepa2.grid.nimbuscloud.mx/matutino`
+- `https://prepa2.grid.nimbuscloud.mx/vespertino`
+- `/` muestra un selector de turno.
+
+**BD** — migración `20261110120000_semester_shift` (aditiva): enum `shift`,
+columna `semesters.shift NOT NULL DEFAULT 'matutino'` (los semestres existentes
+quedan como matutino), `UNIQUE (campus_id, code, shift)` y el índice parcial
+`semesters_single_current_per_campus_shift` reemplaza al de sólo campus. Los
+únicos `DROP` son de índices reemplazados, se ejecutan después de crear los
+nuevos. Espejo en `002_constraints.sql`; 2 asserts nuevos en
+`verify_constraints.sql` (29 OK).
+
+**API pública** — `status`, `verify-code` y `submit` aceptan `shift`
+(`utils/shift.js` → `parseShift`). Omitido con un solo turno activo ⇒ ese;
+con los dos ⇒ `400 SHIFT_REQUIRED`; inválido ⇒ `400 INVALID_SHIFT`. Las
+respuestas incluyen `shift`.
+
+**API admin** — `POST /semesters` exige `shift` o `shifts: [...]`; con
+`shifts` crea uno por turno en una transacción y devuelve el array.
+`PATCH /semesters/:id/current` sólo apaga el activo del MISMO turno.
+`overview` incluye `shift`.
+
+**Portal** — `pages/matutino.astro`, `pages/vespertino.astro` montan
+`<TaevPortal shift=…>`; `index.astro` → `ShiftPicker`. `build.format: 'file'`
+(genera `matutino.html`) y `nginx.conf` con `absolute_redirect off` +
+`/matutino/ → /matutino`.
+
+**Admin** — alta con casillas de turno (ambos por defecto); en Semestres una
+tarjeta por turno con estado, link, copiar y abrir; columna Turno; activar /
+cerrar por turno. El QR de "Envíos en vivo" apunta al link del turno del
+semestre seleccionado.
+
+### Verificación
+
+- `npm test` en `Backend/`: **38/38** (34 previos + 4 de `parseShift`).
+- `verify_constraints.sql` contra base desechable: **29 OK**, 0 FALLO.
+- Curl contra base desechable con el seed: crear `2026B` en ambos turnos
+  (array), duplicado ⇒ `SEMESTER_CODE_TAKEN`, sin turno ⇒ `SHIFT_REQUIRED`;
+  `2026A` matutino y `2026B` vespertino activos a la vez; status por turno
+  correcto; alumno matutino en el link vespertino ⇒ `CODE_NOT_FOUND`.
+- `Frontend/` y `Admin/`: `astro check` 0 errores, `astro build` OK. nginx del
+  portal probado en contenedor: `/`, `/matutino`, `/vespertino` 200;
+  `/matutino/` 301 relativo.
+- **Sin prueba de navegador.**

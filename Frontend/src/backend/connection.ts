@@ -54,6 +54,14 @@ export async function request<T>(
 // Tipos del portal público — reflejan los contratos de Docs/HANDOFF.md §4
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Turno: cada uno es un semestre independiente con su propio link. */
+export type Shift = 'matutino' | 'vespertino';
+
+export const SHIFT_LABEL: Record<Shift, string> = {
+  matutino: 'Matutino',
+  vespertino: 'Vespertino',
+};
+
 export interface Offering {
   semesterSubjectId: number;
   name: string;
@@ -78,7 +86,8 @@ export interface WindowState {
 
 export interface TaevStatus {
   campus: { code: string; name: string };
-  semester: { code: string; label: string; ranksRequired: number } | null;
+  shift: Shift | null;
+  semester: { code: string; label: string; shift: Shift; ranksRequired: number } | null;
   window: WindowState;
   offerings: Offering[];
 }
@@ -86,6 +95,7 @@ export interface TaevStatus {
 export interface VerifyCodeResult {
   studentName: string | null;
   semesterLabel: string;
+  shift: Shift;
   ranksRequired: number;
   offerings: Offering[];
 }
@@ -104,14 +114,12 @@ export interface PreferenceInput {
 export const endpoints = {
   health: () => request<{ status: string; env: string } | true>(api.get('/health')),
 
-  taev_status: (campus?: string) =>
-    request<TaevStatus>(
-      api.get('/api/taev/status', { params: campus ? { campus } : undefined }),
-    ),
+  taev_status: (campus: string, shift: Shift) =>
+    request<TaevStatus>(api.get('/api/taev/status', { params: { campus, shift } })),
 
-  taev_verifyCode: (code: string, campus?: string) =>
-    request<VerifyCodeResult>(api.post('/api/taev/verify-code', { code, campus })),
+  taev_verifyCode: (code: string, campus: string, shift: Shift) =>
+    request<VerifyCodeResult>(api.post('/api/taev/verify-code', { code, campus, shift })),
 
-  taev_submit: (code: string, preferences: PreferenceInput[], campus?: string) =>
-    request<SubmitResult>(api.post('/api/taev/submit', { code, campus, preferences })),
+  taev_submit: (code: string, preferences: PreferenceInput[], campus: string, shift: Shift) =>
+    request<SubmitResult>(api.post('/api/taev/submit', { code, campus, shift, preferences })),
 };

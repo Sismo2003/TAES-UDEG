@@ -7,7 +7,7 @@ import { Badge } from '../components/ui/Badge';
 import { useSemesterStore } from '../stores/semesterStore';
 import { canWrite, useAuthStore } from '../stores/authStore';
 import { formatDateTime } from '../lib/dates';
-import type { WindowMode, WindowReason } from '../backend/connection';
+import { SHIFT_LABEL, type WindowMode, type WindowReason } from '../backend/connection';
 
 const WINDOW_LABEL: Record<WindowMode, string> = {
   scheduled: 'Programado (manda el reloj)',
@@ -62,7 +62,7 @@ export function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        subtitle={`${semester.code} — ${semester.label} · ${semester.ranksRequired} preferencias por alumno`}
+        subtitle={`${semester.code} — ${semester.label} · Turno ${SHIFT_LABEL[semester.shift].toLowerCase()} · ${semester.ranksRequired} preferencias por alumno`}
         actions={
           <Button color="neutral" variant="outlined" onClick={() => void refreshOverview()} disabled={isLoading}>
             <RefreshCw size={15} /> Actualizar

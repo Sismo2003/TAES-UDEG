@@ -23,7 +23,7 @@
 --
 --   docker rm -f taev-verify
 --
--- Salida esperada: 27 líneas "OK" y el banner final. Cualquier "FALLO" o
+-- Salida esperada: 29 líneas "OK" y el banner final. Cualquier "FALLO" o
 -- "ERROR" significa que una garantía del modelo dejó de existir.
 --
 -- El script inserta datos, así que corre UNA vez por base limpia: una segunda
@@ -119,6 +119,15 @@ SELECT assert_rejects('ranks_required fuera de rango',
 INSERT INTO semesters (campus_id, code, label, is_current, opens_at, closes_at, window_mode, ranks_required, created_by_id, created_at, updated_at)
 VALUES (2, '2026A', '2026-A', TRUE, '2026-08-22T17:00:00Z', '2026-08-22T17:15:00Z', 'scheduled', 3, 2, now(), now());
 \echo 'OK   aceptado: semestre activo simultáneo en OTRO campus'
+
+-- ...y el MISMO campus puede tener uno activo por turno, con el mismo code.
+INSERT INTO semesters (campus_id, code, label, shift, is_current, opens_at, closes_at, window_mode, ranks_required, created_by_id, created_at, updated_at)
+VALUES (1, '2026A', '2026-A', 'vespertino', TRUE, '2026-08-22T20:00:00Z', '2026-08-22T20:15:00Z', 'scheduled', 3, 1, now(), now());
+\echo 'OK   aceptado: semestre activo vespertino junto al matutino del mismo campus'
+
+SELECT assert_rejects('segundo semestre is_current en el MISMO campus y turno vespertino',
+  $q$INSERT INTO semesters (campus_id, code, label, shift, is_current, opens_at, closes_at, window_mode, ranks_required, created_by_id, created_at, updated_at)
+     VALUES (1, '2026C', '2026-C', 'vespertino', TRUE, '2026-12-01T16:00:00Z', '2026-12-01T16:15:00Z', 'scheduled', 3, 1, now(), now())$q$);
 
 
 -- ── Alcance de usuarios por campus ──────────────────────────────────────────

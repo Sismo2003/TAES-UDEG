@@ -4,6 +4,8 @@ import {
   CalendarPlus,
   CheckCircle2,
   ChevronRight,
+  Copy,
+  ExternalLink,
   MousePointerClick,
   Pencil,
   PowerOff,
@@ -20,9 +22,13 @@ import { formatDateTime, minutesBetween } from '../lib/dates';
 import {
   endpoints,
   errorMessage,
+  portalShiftUrl,
+  SHIFT_LABEL,
+  SHIFTS,
   type Campus,
   type SemesterInput,
   type SemesterRow,
+  type Shift,
   type WindowMode,
 } from '../backend/connection';
 
@@ -50,7 +56,7 @@ function portalState(
       tone: 'danger',
       label: 'Cerrado',
       detail:
-        'Ningún semestre está activo. Los alumnos ven «el registro no está disponible». Activá un semestre para abrir.',
+        'Ningún semestre de este turno está activo. Los alumnos ven «el registro no está disponible». Activá uno para abrir.',
     };
   }
 
@@ -131,25 +137,36 @@ const ACTIONS: {
   {
     icon: CheckCircle2,
     name: 'Activar',
-    does: 'Marca este semestre como el activo del campus. Sólo puede haber uno a la vez; el que estuviera activo se desactiva.',
+    does: 'Marca este semestre como el activo de su turno. Puede haber uno activo por turno (matutino y vespertino a la vez); el que estuviera activo en ese mismo turno se desactiva.',
     portal:
-      'El portal pasa a apuntar a este semestre: sus estudiantes, su oferta y su ventana. Es lo que hace que el registro exista para los alumnos.',
+      'El link de ese turno (/matutino o /vespertino) pasa a apuntar a este semestre: sus estudiantes, su oferta y su ventana. El otro turno no se toca.',
     tone: 'success',
   },
   {
     icon: PowerOff,
-    name: 'Cerrar plataforma',
-    does: 'Quita el semestre activo. El campus queda sin ningún semestre activo.',
+    name: 'Cerrar turno',
+    does: 'Quita el semestre activo de ese turno. El turno queda sin semestre activo.',
     portal:
-      'El portal deja de aceptar alumnos y muestra «el registro no está disponible» hasta que actives un semestre. Los envíos ya registrados no se tocan.',
+      'El link de ese turno deja de aceptar alumnos y muestra «el registro no está disponible» hasta que actives otro. El otro turno y los envíos ya registrados no se tocan.',
     tone: 'danger',
   },
 ];
 
+/** Copia el link de un turno al portapapeles. */
+async function copyLink(url: string) {
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success('Link copiado.');
+  } catch {
+    toast.error('No se pudo copiar; selecciona el link a mano.');
+  }
+}
+
 /**
- * Semestres del campus — cada uno es un evento de registro con su propia
- * ventana, padrón y oferta. Exactamente uno puede ser el ACTIVO: es al que
- * apunta el portal público, y la base lo garantiza con un índice único parcial.
+ * Semestres del campus — cada uno es un evento de registro de UN turno, con su
+ * propia ventana, padrón y oferta. Puede haber uno ACTIVO por turno: es al que
+ * apunta el link de ese turno en el portal (`/matutino`, `/vespertino`), y la
+ * base lo garantiza con un índice único parcial por (campus, turno).
  */
 export function SemestersPage() {
   const { semesters, selectedId, isMutating } = useSemesterStore();
@@ -161,7 +178,7 @@ export function SemestersPage() {
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [editing, setEditing] = useState<SemesterRow | null | undefined>(undefined);
   const [activating, setActivating] = useState<SemesterRow | null>(null);
-  const [closingPlatform, setClosingPlatform] = useState(false);
+  const [closing, setClosing] = useState<SemesterRow | null>(null);
   const [isSaving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -181,8 +198,13 @@ export function SemestersPage() {
     return () => clearInterval(t);
   }, []);
 
-  const activeSemester = useMemo(() => semesters.find((s) => s.isCurrent), [semesters]);
-  const portal = portalState(activeSemester, now);
+  // Un activo por turno. Con superadmin global pueden venir varias escuelas:
+  // los links son de la escuela del portal, así que se toma el primero.
+  const activeByShift = useMemo(() => {
+    const map = {} as Record<Shift, SemesterRow | undefined>;
+    for (const shift of SHIFTS) map[shift] = semesters.find((s) => s.isCurrent && s.shift === shift);
+    return map;
+  }, [semesters]);
 
   // La lista de semestres es corta (un puñado por escuela) y llega entera:
   // acá sí se filtra y pagina en el cliente, a diferencia del padrón.
@@ -193,6 +215,7 @@ export function SemestersPage() {
       (s) =>
         s.code.toLowerCase().includes(term) ||
         s.label.toLowerCase().includes(term) ||
+        s.shift.includes(term) ||
         s.campus?.name.toLowerCase().includes(term),
     );
   }, [semesters, search]);
@@ -212,8 +235,12 @@ export function SemestersPage() {
         });
         toast.success('Semestre actualizado.');
       } else {
-        const { data } = await endpoints.semester_create(values);
-        toast.success(`Semestre ${data.code} creado.`);
+        const { data } = await endpoints.semester_create({
+          ...values,
+          shifts: values.shifts ?? [...SHIFTS],
+        });
+        const turnos = data.map((d) => SHIFT_LABEL[d.shift].toLowerCase()).join(' y ');
+        toast.success(`Semestre ${data[0]?.code} creado (turno ${turnos}).`);
       }
       setEditing(undefined);
       await loadSemesters(true);
@@ -235,6 +262,12 @@ export function SemestersPage() {
           {r.isCurrent && <Badge tone="success">activo</Badge>}
         </div>
       ),
+    },
+    {
+      key: 'shift',
+      header: 'Turno',
+      width: '120px',
+      render: (r) => <Badge tone="neutral">{SHIFT_LABEL[r.shift]}</Badge>,
     },
     {
       key: 'label',
@@ -298,12 +331,7 @@ export function SemestersPage() {
                 <Pencil size={14} />
               </Button>
               {r.isCurrent ? (
-                <Button
-                  size="sm"
-                  color="danger"
-                  variant="flat"
-                  onClick={() => setClosingPlatform(true)}
-                >
+                <Button size="sm" color="danger" variant="flat" onClick={() => setClosing(r)}>
                   <PowerOff size={14} /> Cerrar
                 </Button>
               ) : (
@@ -322,37 +350,69 @@ export function SemestersPage() {
     <>
       <PageHeader
         title="Semestres"
-        subtitle="Cada semestre es un evento de registro: su ventana, sus estudiantes y su oferta."
+        subtitle="Cada semestre es un evento de registro de un turno: su ventana, sus estudiantes y su oferta."
         actions={
           writable && (
-            <>
-              {activeSemester && (
-                <Button
-                  color="danger"
-                  variant="outlined"
-                  disabled={isMutating}
-                  onClick={() => setClosingPlatform(true)}
-                >
-                  <PowerOff size={15} /> Cerrar plataforma
-                </Button>
-              )}
-              <Button onClick={() => setEditing(null)}>
-                <CalendarPlus size={15} /> Nuevo semestre
-              </Button>
-            </>
+            <Button onClick={() => setEditing(null)}>
+              <CalendarPlus size={15} /> Nuevo semestre
+            </Button>
           )
         }
       />
 
       <div className="flex flex-col gap-3 mb-5">
-        {/* Estado del portal de alumnos ahora mismo */}
-        <Card className="px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            <span className="font-semibold">Portal de alumnos</span>
-            <Badge tone={PORTAL_BADGE[portal.tone]}>{portal.label.toUpperCase()}</Badge>
-            <span className="text-(--color-ink-muted)">{portal.detail}</span>
-          </div>
-        </Card>
+        {/* Estado y link del portal de alumnos, uno por turno */}
+        <div className="grid gap-3 lg:grid-cols-2">
+          {SHIFTS.map((shift) => {
+            const active = activeByShift[shift];
+            const portal = portalState(active, now);
+            const url = portalShiftUrl(shift);
+            return (
+              <Card key={shift} className="px-4 py-3 min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                  <span className="font-semibold">Turno {SHIFT_LABEL[shift].toLowerCase()}</span>
+                  <Badge tone={PORTAL_BADGE[portal.tone]}>{portal.label.toUpperCase()}</Badge>
+                  {writable && active && (
+                    <Button
+                      size="sm"
+                      color="danger"
+                      variant="flat"
+                      className="ml-auto"
+                      disabled={isMutating}
+                      onClick={() => setClosing(active)}
+                    >
+                      <PowerOff size={14} /> Cerrar turno
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-(--color-ink-muted) mt-1">{portal.detail}</p>
+                <div className="flex items-center gap-1 mt-2 min-w-0">
+                  <code className="min-w-0 flex-1 truncate rounded bg-(--color-surface-muted) px-2 py-1 text-xs">
+                    {url}
+                  </code>
+                  <Button
+                    size="sm"
+                    color="neutral"
+                    variant="flat"
+                    aria-label={`Copiar link del turno ${shift}`}
+                    onClick={() => void copyLink(url)}
+                  >
+                    <Copy size={14} />
+                  </Button>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Abrir link del turno ${shift}`}
+                    className="inline-flex items-center justify-center rounded-md p-2 text-(--color-ink-muted) hover:text-(--color-ink)"
+                  >
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
 
         {/* Qué hace cada acción y cómo llega al alumno — plegado por defecto */}
         <Card className="px-4 py-2.5">
@@ -416,12 +476,13 @@ export function SemestersPage() {
           setSearch(v);
           setPage(1);
         }}
-        searchPlaceholder="Buscar por código, etiqueta o escuela…"
+        searchPlaceholder="Buscar por código, etiqueta, turno o escuela…"
         emptyMessage="Todavía no hay semestres."
         mobileCard={(r) => (
           <div>
             <div className="flex items-center gap-2">
               <p className="font-medium">{r.code}</p>
+              <Badge tone="neutral">{SHIFT_LABEL[r.shift]}</Badge>
               {r.isCurrent && <Badge tone="success">activo</Badge>}
             </div>
             <p className="text-sm text-(--color-ink-muted)">{r.label}</p>
@@ -441,13 +502,8 @@ export function SemestersPage() {
                 </Button>
               )}
               {writable && r.isCurrent && (
-                <Button
-                  size="sm"
-                  color="danger"
-                  variant="flat"
-                  onClick={() => setClosingPlatform(true)}
-                >
-                  Cerrar plataforma
+                <Button size="sm" color="danger" variant="flat" onClick={() => setClosing(r)}>
+                  Cerrar turno
                 </Button>
               )}
               {writable && !r.isCurrent && (
@@ -473,7 +529,7 @@ export function SemestersPage() {
 
       {activating && (
         <ConfirmDialog
-          title={`Activar ${activating.code}`}
+          title={`Activar ${activating.code} · ${SHIFT_LABEL[activating.shift]}`}
           confirmLabel="Activar"
           tone="primary"
           isBusy={isMutating}
@@ -483,33 +539,31 @@ export function SemestersPage() {
             setActivating(null);
           }}
         >
-          El portal público de la escuela va a apuntar a este semestre, y el que estuviera activo
-          deja de estarlo. Sólo puede haber uno por escuela.
+          El link del turno {activating.shift} (<code>{portalShiftUrl(activating.shift)}</code>) va a
+          apuntar a este semestre, y el que estuviera activo en ese turno deja de estarlo. El otro
+          turno no se toca.
         </ConfirmDialog>
       )}
 
-      {closingPlatform && (
+      {closing && (
         <ConfirmDialog
-          title="Cerrar la plataforma de alumnos"
-          confirmLabel="Cerrar plataforma"
+          title={`Cerrar el turno ${SHIFT_LABEL[closing.shift].toLowerCase()}`}
+          confirmLabel="Cerrar turno"
           tone="danger"
           isBusy={isMutating}
-          onClose={() => setClosingPlatform(false)}
+          onClose={() => setClosing(null)}
           onConfirm={async () => {
-            if (activeSemester) await clearCurrent(activeSemester.id);
-            setClosingPlatform(false);
+            await clearCurrent(closing.id);
+            setClosing(null);
           }}
         >
-          {activeSemester ? (
-            <>
-              <strong>{activeSemester.code}</strong> deja de ser el semestre activo. El campus queda
-              sin ningún semestre activo: ningún alumno va a poder entrar al portal ni enviar su
-              formulario hasta que actives un semestre de nuevo. Los envíos ya registrados no se
-              tocan.
-            </>
-          ) : (
-            'No hay ningún semestre activo.'
-          )}
+          <strong>
+            {closing.code} · {SHIFT_LABEL[closing.shift]}
+          </strong>{' '}
+          deja de ser el semestre activo de su turno. Ningún alumno del turno{' '}
+          {closing.shift} va a poder entrar a <code>{portalShiftUrl(closing.shift)}</code> ni enviar
+          su formulario hasta que actives un semestre de ese turno. El otro turno y los envíos ya
+          registrados no se tocan.
         </ConfirmDialog>
       )}
     </>

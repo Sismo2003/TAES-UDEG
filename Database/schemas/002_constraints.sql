@@ -61,23 +61,28 @@ ALTER TABLE "semesters"
   ADD CONSTRAINT "semesters_ranks_required_valid"
   CHECK ("ranks_required" BETWEEN 1 AND 10);
 
--- EXACTAMENTE UN SEMESTRE ACTIVO POR ESCUELA.
+-- A LO SUMO UN SEMESTRE ACTIVO POR ESCUELA Y TURNO.
 -- El portal público resuelve "¿a qué semestre entra este alumno?" con
--- `WHERE campus_id = $1 AND is_current = true`. Si hubiera dos, esa consulta
--- devuelve lo que el planner decida y el sistema se vuelve no determinista en
--- el peor momento posible. Este índice parcial lo hace imposible: el segundo
--- UPDATE del mismo campus falla.
+-- `WHERE campus_id = $1 AND shift = $2 AND is_current = true` (cada turno tiene
+-- su link: /matutino, /vespertino). Si hubiera dos, esa consulta devuelve lo
+-- que el planner decida y el sistema se vuelve no determinista en el peor
+-- momento posible. Este índice parcial lo hace imposible: el segundo UPDATE
+-- del mismo campus y turno falla.
 --
--- Es por campus, no global: PREPA 2 y PREPA 3 corren sus ciclos en paralelo.
+-- Es por campus y turno, no global: PREPA 2 matutino, PREPA 2 vespertino y
+-- PREPA 3 corren sus ciclos en paralelo.
 --
 -- Cambiar de semestre activo es, entonces, una transacción de dos pasos:
 --   BEGIN;
 --     UPDATE semesters SET is_current = false
---      WHERE campus_id = $1 AND is_current;
---     UPDATE semesters SET is_current = true  WHERE id = $2;
+--      WHERE campus_id = $1 AND shift = $2 AND is_current;
+--     UPDATE semesters SET is_current = true  WHERE id = $3;
 --   COMMIT;
-CREATE UNIQUE INDEX "semesters_single_current_per_campus"
-  ON "semesters" ("campus_id")
+--
+-- (Hasta la migración 20261110120000_semester_shift el índice era sólo por
+-- campus: `semesters_single_current_per_campus`.)
+CREATE UNIQUE INDEX "semesters_single_current_per_campus_shift"
+  ON "semesters" ("campus_id", "shift")
   WHERE "is_current";
 
 

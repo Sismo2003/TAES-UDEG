@@ -12,6 +12,7 @@ const LIST_SELECT = {
   campusId: true,
   code: true,
   label: true,
+  shift: true,
   isCurrent: true,
   opensAt: true,
   closesAt: true,
@@ -24,7 +25,7 @@ const LIST_SELECT = {
 export function listScoped(campusId, client = prisma) {
   return client.semester.findMany({
     where: campusId == null ? {} : { campusId },
-    orderBy: [{ campusId: 'asc' }, { code: 'desc' }],
+    orderBy: [{ campusId: 'asc' }, { code: 'desc' }, { shift: 'asc' }],
     select: LIST_SELECT,
   });
 }
@@ -38,9 +39,21 @@ export function findByIdWithCampus(id, client = prisma) {
   return client.semester.findUnique({ where: { id: Number(id) }, select: LIST_SELECT });
 }
 
-/** El semestre activo de un campus, o `null`. Usa el índice `(campus_id, is_current)`. */
-export function findCurrentByCampus(campusId, client = prisma) {
-  return client.semester.findFirst({ where: { campusId, isCurrent: true } });
+/**
+ * El semestre activo de un campus y turno, o `null`. Usa el índice
+ * `(campus_id, shift, is_current)`. El índice único parcial garantiza que hay
+ * a lo sumo uno.
+ */
+export function findCurrentByCampusShift(campusId, shift, client = prisma) {
+  return client.semester.findFirst({ where: { campusId, shift, isCurrent: true } });
+}
+
+/** Todos los semestres activos de un campus (uno por turno, como máximo). */
+export function listCurrentByCampus(campusId, client = prisma) {
+  return client.semester.findMany({
+    where: { campusId, isCurrent: true },
+    orderBy: { shift: 'asc' },
+  });
 }
 
 /** Ids de los semestres de un campus — el acotado de la bitácora los necesita. */
@@ -57,10 +70,10 @@ export function updateById(id, data, client = prisma) {
   return client.semester.update({ where: { id: Number(id) }, data });
 }
 
-/** Apaga el `is_current` de los demás semestres del campus. */
-export function unsetCurrentExcept(campusId, semesterId, client = prisma) {
+/** Apaga el `is_current` de los demás semestres del mismo campus y turno. */
+export function unsetCurrentExcept(campusId, shift, semesterId, client = prisma) {
   return client.semester.updateMany({
-    where: { campusId, isCurrent: true, NOT: { id: Number(semesterId) } },
+    where: { campusId, shift, isCurrent: true, NOT: { id: Number(semesterId) } },
     data: { isCurrent: false },
   });
 }
