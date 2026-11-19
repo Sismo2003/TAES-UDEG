@@ -70,6 +70,9 @@ desktop.ini
 **/padron-real*
 **/*.xlsx
 
+# ── Copias/backups de la base de producción (datos reales de alumnos) ───────
+Database/backups/
+
 # ── Misc ─────────────────────────────────────────────────────────────────────
 *.local
 .env.local
@@ -80,3 +83,6 @@ desktop.ini
 
 # ── Graphify: snapshots de respaldo fechados, se regeneran localmente ────────
 graphify-out/20*/
+
+
+test/

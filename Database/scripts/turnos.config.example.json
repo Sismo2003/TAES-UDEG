@@ -1,0 +1,185 @@
+{
+  "campusCode": "prepa-2",
+  "ranksRequired": null,
+  "refuseIfSubmissionsSince": "2026-11-19T00:00:00-06:00",
+  "shifts": {
+    "MATUTINO": {
+      "code": "2026B",
+      "label": "2026-B",
+      "opensAt": "2026-11-19T07:00:00-06:00",
+      "closesAt": "2026-11-19T14:00:00-06:00",
+      "offering": [
+        {
+          "subjectCode": "250182",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250187",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250190",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250185",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250193",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250201",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250198",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250229",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250183",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        }
+      ]
+    },
+    "VESPERTINO": {
+      "code": "2026B",
+      "label": "2026-B",
+      "opensAt": "2026-11-19T14:00:00-06:00",
+      "closesAt": "2026-11-19T21:00:00-06:00",
+      "offering": [
+        {
+          "subjectCode": "250182",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250187",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250190",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250185",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250193",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250201",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250198",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250229",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        },
+        {
+          "subjectCode": "250183",
+          "groups": [
+            {
+              "label": "A",
+              "capacity": null
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
