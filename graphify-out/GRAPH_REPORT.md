@@ -1,16 +1,16 @@
-# Graph Report - TAEV-UDEG-PREPA2  (2026-11-18)
+# Graph Report - TAEV-UDEG-PREPA2  (2026-11-25)
 
 ## Corpus Check
-- 163 files · ~93,732 words
+- 176 files · ~101,296 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1132 nodes · 1960 edges · 90 communities (60 shown, 30 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 17 edges (avg confidence: 0.75)
+- 1208 nodes · 2224 edges · 93 communities (62 shown, 31 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 18 edges (avg confidence: 0.73)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `efbee5b7`
+- Built from commit: `899e5833`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -25,7 +25,7 @@
 - main.js
 - admin.service.js
 - admin.controller.js
-- cn
+- SubmissionsPage.tsx
 - App.tsx
 - graphify.js
 - taevStore.ts
@@ -37,12 +37,14 @@
 - Frontend/tsconfig.json
 - Arquitectura
 - Frontend — TAEV-UDEG-PREPA2
-- SubjectsPage.tsx
+- StatisticsPage.tsx
+- cn
 - STACK-SETUP — qué se creó al inicializar el proyecto
 - Admin — TAEV-UDEG-PREPA2
 - Frontend — TAEV-UDEG-PREPA2
 - Backend — TAEV-UDEG-PREPA2
 - HANDOFF — cablear la API con el portal público
+- SemestersPage.tsx
 - Controllers
 - Database
 - Admin/src/components/forms/README.md
@@ -75,7 +77,7 @@
 - StudentImportModal.tsx
 - subject.model.js
 - AssignmentsPage.tsx
-- OfferingsPage.tsx
+- NotSubmitted.tsx
 - Índice
 - campus.model.js
 - TAEV-UDEG-PREPA2
@@ -86,7 +88,7 @@
 - hash-string.js
 - audit.model.js
 - Ajustes posteriores — 2026-08-28 (Admin: página Semestres + padrón)
-- submission.model.js
+- statistics.js
 - Fase 7.1 — Módulo "Envíos" (pantalla en vivo) + sidebar colapsable — 2026-08-28
 - Ajustes posteriores — 2026-08-28 (Admin: terminología de la UI)
 - Fase 5 — Capa `models/` y módulos esenciales del panel
@@ -94,6 +96,7 @@
 - Fase 3 — Auth + Admin
 - Fase 0 — Entorno
 - Fase 2 — Portal público
+- group.model.js
 - Fase 1 — API pública
 - build-turnos-sql.mjs
 - semester.model.js
@@ -104,33 +107,33 @@
 - deploy-trigger.sh
 
 ## God Nodes (most connected - your core abstractions)
-1. `apiError` - 42 edges
-2. `cn()` - 39 edges
-3. `fail()` - 30 edges
-4. `useAuthStore` - 22 edges
-5. `transaction()` - 22 edges
-6. `errorMessage()` - 19 edges
-7. `useSemesterStore` - 19 edges
-8. `loadSemesterScoped()` - 19 edges
-9. `ip()` - 18 edges
-10. `useTaevStore` - 17 edges
+1. `cn()` - 51 edges
+2. `apiError` - 44 edges
+3. `fail()` - 31 edges
+4. `transaction()` - 24 edges
+5. `errorMessage()` - 23 edges
+6. `useAuthStore` - 22 edges
+7. `useSemesterStore` - 21 edges
+8. `Button()` - 19 edges
+9. `loadSemesterScoped()` - 19 edges
+10. `ip()` - 18 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `Groups()` --calls--> `cn()`  [EXTRACTED]
+  Admin/src/components/sections/statistics/SubjectDemand.tsx → Admin/src/lib/cn.ts
 - `Stat()` --calls--> `cn()`  [EXTRACTED]
   Admin/src/pages/AssignmentsPage.tsx → Admin/src/lib/cn.ts
-- `AddOfferingModal()` --calls--> `cn()`  [EXTRACTED]
-  Admin/src/pages/OfferingsPage.tsx → Admin/src/lib/cn.ts
-- `GroupFormModal()` --calls--> `cn()`  [EXTRACTED]
-  Admin/src/pages/OfferingsPage.tsx → Admin/src/lib/cn.ts
+- `LiveSwitch()` --calls--> `cn()`  [EXTRACTED]
+  Admin/src/pages/SubmissionsPage.tsx → Admin/src/lib/cn.ts
+- `Stat()` --calls--> `cn()`  [EXTRACTED]
+  Admin/src/pages/SubmissionsPage.tsx → Admin/src/lib/cn.ts
 - `login()` --calls--> `apiError`  [EXTRACTED]
   Backend/services/auth.service.js → Backend/utils/apiError.js
-- `App()` --calls--> `useAuthStore`  [EXTRACTED]
-  Admin/src/App.tsx → Admin/src/stores/authStore.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (90 total, 30 thin omitted)
+## Communities (93 total, 31 thin omitted)
 
 ### Community 0 - "devDependencies"
 Cohesion: 0.06
@@ -153,32 +156,32 @@ Cohesion: 0.17
 Nodes (12): 1. Eliminado el motivo "blueprint" (cruces de esquina), 2. `PreferencesStep` — ancho fijo del select + salto de línea en nombres largos, Ajustes posteriores — 2026-08-28 (Frontend, fuera de las fases 0→5), Cómo levantar todo, Fase 4 — Allocator, IMPLEMENTATION LOG — Fases 0 → 5, Pendientes, Resumen por fase (+4 more)
 
 ### Community 5 - "Admin/src/backend/connection.ts"
-Cohesion: 0.08
-Nodes (34): api, ApiEnvelope, ApiError, AssignmentMutationResult, Campus, ListQuery, MESSAGES, Overview (+26 more)
+Cohesion: 0.09
+Nodes (24): api, ApiEnvelope, ApiError, AssignmentMutationResult, ListQuery, MESSAGES, Overview, Paginated (+16 more)
 
 ### Community 6 - "TAEV-UDEG-PREPA2"
 Cohesion: 0.15
 Nodes (13): Base de datos — regla obligatoria para cualquier agente, Comandos rápidos, Contexto del proyecto, Convenciones clave (resumen), Estado de la implementación, Estructura del repositorio, graphify, Producción (+5 more)
 
 ### Community 7 - "main.js"
-Cohesion: 0.08
+Cohesion: 0.09
 Nodes (25): app, globalLimiter, assertConfig(), auth, db, defaultOrigins, origins, taev (+17 more)
 
 ### Community 8 - "admin.service.js"
-Cohesion: 0.09
-Nodes (52): transaction(), assertCampusAccess(), isGlobalScope(), scopeCampusId(), addOffering(), bulkUploadStudents(), changeWindowMode(), clearCurrentSemester() (+44 more)
+Cohesion: 0.07
+Nodes (58): transaction(), assertCampusAccess(), isGlobalScope(), scopeCampusId(), buildLiveWhere(), listPaginated(), LIVE_ROW_SELECT, shapeLiveRow() (+50 more)
 
 ### Community 9 - "admin.controller.js"
 Cohesion: 0.13
-Nodes (39): addOffering(), allocate(), AUDIT_ENTITY_TYPES, auditLog(), bulkStudents(), changeWindow(), clearCurrent(), createGroup() (+31 more)
+Nodes (40): addOffering(), allocate(), AUDIT_ENTITY_TYPES, auditLog(), bulkStudents(), changeWindow(), clearCurrent(), createGroup() (+32 more)
 
-### Community 10 - "cn"
-Cohesion: 0.14
-Nodes (20): portalShiftUrl(), SHIFT_LABEL, AppLayout(), readCollapsed(), SemesterSwitcher(), NAV, NavItem, Sidebar() (+12 more)
+### Community 10 - "SubmissionsPage.tsx"
+Cohesion: 0.27
+Nodes (10): PORTAL_URL, portalShiftUrl(), Countdown, firstPreference(), formatDuration(), LiveSwitch(), pad(), resolveCountdown() (+2 more)
 
 ### Community 11 - "App.tsx"
-Cohesion: 0.15
-Nodes (24): App(), AdminUser, errorMessage(), TOKEN_KEY, WindowReason, useTableQuery(), formatDateTime(), AssignmentsPage() (+16 more)
+Cohesion: 0.21
+Nodes (17): App(), AdminUser, errorMessage(), AssignmentsPage(), DashboardPage(), LoginPage(), NotFoundPage(), OfferingsPage() (+9 more)
 
 ### Community 13 - "taevStore.ts"
 Cohesion: 0.06
@@ -216,9 +219,13 @@ Nodes (13): Admin (`Admin/.env`), Admin (panel interno), Arquitectura, Backend, 
 Cohesion: 0.17
 Nodes (11): Cliente API (`backend/`), Contact info (regla futura, cuando se necesite), Diferencia clave Frontend vs Admin, Forms, Frontend — TAEV-UDEG-PREPA2, i18n (opcional), Layout, Routing (+3 more)
 
-### Community 25 - "SubjectsPage.tsx"
-Cohesion: 0.12
-Nodes (25): StudentRow, SubjectRow, blank(), FormValues, schema, StudentFormModal(), FormValues, schema (+17 more)
+### Community 24 - "StatisticsPage.tsx"
+Cohesion: 0.11
+Nodes (32): AllocationPhase, ShiftStatistics, Statistics, StudentRow, fetchMissing(), NotSubmitted(), BALANCE_STYLE, BalanceChip() (+24 more)
+
+### Community 25 - "cn"
+Cohesion: 0.10
+Nodes (36): GroupRow, OfferingRow, SubjectRow, blank(), FormValues, schema, StudentFormModal(), FormValues (+28 more)
 
 ### Community 26 - "STACK-SETUP — qué se creó al inicializar el proyecto"
 Cohesion: 0.20
@@ -240,17 +247,21 @@ Nodes (6): Backend — TAEV-UDEG-PREPA2, Estructura, Reglas del proyecto, Script
 Cohesion: 0.09
 Nodes (22): 1. Dónde está parado el proyecto, #1 — `rankings` está indexado por NOMBRE, la API necesita IDs, 2. Arrancar en 5 minutos, #2 — `PreferencesStep` tiene el "3" hardcodeado, 3. Los 7 desajustes entre el front actual y la API real, #3 — No existe pantalla de "ventana cerrada", 4. Contratos de los tres endpoints públicos, #4 — `ErrorStep` tiene un título fijo equivocado (+14 more)
 
+### Community 31 - "SemestersPage.tsx"
+Cohesion: 0.16
+Nodes (17): Campus, SemesterInput, Shift, SHIFTS, FormValues, schema, SemesterFormModal(), FORMAT (+9 more)
+
 ### Community 46 - "Seeds"
 Cohesion: 0.40
 Nodes (4): Archivos, Convención, El campus inicial no está acá, Seeds
 
 ### Community 55 - "StudentsPage.tsx"
-Cohesion: 0.16
-Nodes (14): AuditRow, endpoints, alignClass, Column, DataTable(), DataTableProps, PAGE_SIZES, SortState (+6 more)
+Cohesion: 0.15
+Nodes (17): AuditRow, endpoints, alignClass, Column, DataTable(), DataTableProps, PAGE_SIZES, SortState (+9 more)
 
 ### Community 56 - "student.model.js"
 Cohesion: 0.18
-Nodes (4): buildWhere(), listPaginated(), ROW_SELECT, SORTABLE
+Nodes (6): buildWhere(), countActiveBySchoolGroup(), countInactiveWithSubmission(), listPaginated(), ROW_SELECT, SORTABLE
 
 ### Community 57 - "db.js"
 Cohesion: 0.22
@@ -261,8 +272,8 @@ Cohesion: 0.20
 Nodes (9): 1. Principios de diseño — aplícalos, no los cites, 2. Tokens de marca — define los reales en `styles/global.css`, 3. Superficies — recipe estándar, 4. Modales — siempre el patrón `<Modal>` existente, 5. Buttons — el contrato color/variant, 6. Forms — inputs, validación y cuándo usar react-hook-form, 7. Cards, badges y layout de sección, 8. Modo claro/oscuro (+1 more)
 
 ### Community 61 - "StudentImportModal.tsx"
-Cohesion: 0.21
-Nodes (12): StudentInput, analyze(), COLUMNS, MAX, norm(), ParsedRow, ParseResult, SPEC (+4 more)
+Cohesion: 0.18
+Nodes (14): StudentInput, analyze(), COLUMNS, MAX, norm(), ParsedRow, ParseResult, SPEC (+6 more)
 
 ### Community 62 - "subject.model.js"
 Cohesion: 0.22
@@ -272,9 +283,9 @@ Nodes (4): buildWhere(), listPaginated(), ROW_SELECT, SORTABLE
 Cohesion: 0.20
 Nodes (15): SubmissionRow, SubmissionStatus, GroupOption, PlaceAssignmentModal(), PlaceMode, buildOfferingIndex(), OfferingIndex, OfferingSeats (+7 more)
 
-### Community 65 - "OfferingsPage.tsx"
-Cohesion: 0.29
-Nodes (8): GroupRow, OfferingRow, Card(), PageHeader(), AddOfferingModal(), GroupFormModal(), GroupTarget, PENDING
+### Community 65 - "NotSubmitted.tsx"
+Cohesion: 0.25
+Nodes (9): SHIFT_LABEL, Badge(), BadgeTone, tones, Card(), PageHeader(), WINDOW_LABEL, WINDOW_REASON_LABEL (+1 more)
 
 ### Community 66 - "Índice"
 Cohesion: 0.25
@@ -308,9 +319,9 @@ Nodes (3): buildWhere(), listPaginated(), ROW_SELECT
 Cohesion: 0.33
 Nodes (6): 0. Diagnóstico — por qué `2026-MATUTINO` no abría (sin cambios de código), 1. `STATUS_LABEL.pending`: "pendiente" → "enviado", 2. Endpoint nuevo — "cerrar la plataforma" (quitar el semestre activo), 3. `Admin/src/pages/SemestersPage.tsx` — KPIs, botón y columna, Ajustes posteriores — 2026-08-28 (Admin: página Semestres + padrón), Verificación
 
-### Community 76 - "submission.model.js"
-Cohesion: 0.20
-Nodes (4): buildLiveWhere(), listPaginated(), LIVE_ROW_SELECT, shapeLiveRow()
+### Community 76 - "statistics.js"
+Cohesion: 0.23
+Nodes (9): buildSchoolGroups(), buildShiftStatistics(), buildSubjects(), byName(), clean(), combineShiftStatistics(), resolvePhase(), schoolGroupName() (+1 more)
 
 ### Community 77 - "Fase 7.1 — Módulo "Envíos" (pantalla en vivo) + sidebar colapsable — 2026-08-28"
 Cohesion: 0.33
@@ -361,24 +372,24 @@ Cohesion: 0.40
 Nodes (5): log(), rollout.sh script, TAEV_ADMIN_TAG, TAEV_API_TAG, TAEV_WEB_TAG
 
 ## Knowledge Gaps
-- **498 isolated node(s):** `name`, `private`, `version`, `type`, `dev` (+493 more)
+- **503 isolated node(s):** `name`, `private`, `version`, `type`, `dev` (+498 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **30 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **31 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `TAEV — Diseño de Base de Datos` connect `4. Tablas` to `DATABASE.md`?**
-  _High betweenness centrality (0.019) - this node is a cross-community bridge._
 - **Why does `IMPLEMENTATION LOG — Fases 0 → 5` connect `IMPLEMENTATION LOG — Fases 0 → 5` to `Ajustes posteriores — 2026-08-28 (Admin: página Semestres + padrón)`, `Fase 7.1 — Módulo "Envíos" (pantalla en vivo) + sidebar colapsable — 2026-08-28`, `Ajustes posteriores — 2026-08-28 (Admin: terminología de la UI)`, `Fase 5 — Capa `models/` y módulos esenciales del panel`, `Fase 7.2 — Módulo "Asignaciones" (colocar y mover a mano) — 2026-08-28`, `Fase 3 — Auth + Admin`, `Fase 0 — Entorno`, `Fase 2 — Portal público`, `Fase 1 — API pública`, `DATABASE.md`?**
-  _High betweenness centrality (0.017) - this node is a cross-community bridge._
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
+- **Why does `TAEV — Diseño de Base de Datos` connect `4. Tablas` to `DATABASE.md`?**
+  _High betweenness centrality (0.011) - this node is a cross-community bridge._
+- **Why does `ROADMAP — de acá al evento real` connect `ROADMAP — de acá al evento real` to `DATABASE.md`?**
+  _High betweenness centrality (0.008) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `version` to the rest of the system?**
-  _498 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _503 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `devDependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.06451612903225806 - nodes in this community are weakly interconnected._
 - **Should `dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.05 - nodes in this community are weakly interconnected._
 - **Should `Admin/tsconfig.json` be split into smaller, more focused modules?**
   _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._
-- **Should `dependencies` be split into smaller, more focused modules?**
-  _Cohesion score 0.0425531914893617 - nodes in this community are weakly interconnected._

@@ -792,6 +792,7 @@ el Frontend ramifica por el `message` machine-readable.
 | `POST` · `PATCH` | `/api/admin/semesters/:id/groups[/:groupId]` | grupos y cupos |
 | `POST` | `/api/admin/semesters/:id/allocate` | disparar la asignación |
 | `GET` | `/api/admin/semesters/:id/overview` | dashboard: cupos restantes, contadores |
+| `GET` | `/api/admin/semesters/:id/statistics` | pantalla "Estadísticas" (sólo lectura): todos los turnos con el mismo código y campus — lugares contra demanda, faltantes/sobrantes por turno (nunca neteados entre turnos) y quiénes no han enviado por grupo |
 | `POST` | `/api/admin/semesters/:id/assignments` | colocar a mano a un alumno sin lugar |
 | `PATCH` | `/api/admin/assignments/:id` | mover un alumno a mano |
 | `GET` | `/api/admin/audit-log` | bitácora — **paginada**, `?search=&action=&entityType=` |

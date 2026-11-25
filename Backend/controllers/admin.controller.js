@@ -13,6 +13,7 @@
  */
 import * as admin from '../services/admin.service.js';
 import * as allocation from '../services/allocation.service.js';
+import { semesterStatistics } from '../services/statistics.service.js';
 import { isExposable } from '../utils/apiError.js';
 import {
   parseEnum,
@@ -116,6 +117,16 @@ export const overview = async (req, res) => {
     return res.status(200).json({ data: await admin.semesterOverview(req.user, req.params.id) });
   } catch (err) {
     return fail(res, err, 'overview');
+  }
+};
+
+/** Estadísticas del ciclo al que pertenece el semestre (todos sus turnos). */
+export const statistics = async (req, res) => {
+  try {
+    const data = await semesterStatistics(req.user, parseId(req.params.id));
+    return res.status(200).json({ data });
+  } catch (err) {
+    return fail(res, err, 'statistics');
   }
 };
 

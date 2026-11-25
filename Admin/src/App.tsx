@@ -10,6 +10,7 @@ import { OfferingsPage } from './pages/OfferingsPage';
 import { SubmissionsPage } from './pages/SubmissionsPage';
 import { AssignmentsPage } from './pages/AssignmentsPage';
 import { AuditPage } from './pages/AuditPage';
+import { StatisticsPage } from './pages/StatisticsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LoginPage } from './pages/LoginPage';
@@ -47,6 +48,7 @@ export default function App() {
           <AppLayout>
             <Routes>
               <Route path="/" element={<DashboardPage />} />
+              <Route path="/estadisticas" element={<StatisticsPage />} />
               <Route path="/semestres" element={<SemestersPage />} />
               <Route path="/padron" element={<StudentsPage />} />
               <Route path="/asignaturas" element={<SubjectsPage />} />

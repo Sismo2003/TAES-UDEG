@@ -33,6 +33,6 @@ if (NODE_ENV !== 'production') {
  *     await auditModel.write({ ... }, tx);
  *   });
  */
-export function transaction(fn) {
-  return prisma.$transaction(fn);
+export function transaction(fn, options) {
+  return prisma.$transaction(fn, options);
 }

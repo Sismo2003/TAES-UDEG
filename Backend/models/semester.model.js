@@ -56,6 +56,15 @@ export function listCurrentByCampus(campusId, client = prisma) {
   });
 }
 
+/** Los turnos de un mismo ciclo: mismo campus y código (matutino primero). */
+export function listByCampusCode(campusId, code, client = prisma) {
+  return client.semester.findMany({
+    where: { campusId, code },
+    orderBy: { shift: 'asc' },
+    select: LIST_SELECT,
+  });
+}
+
 /** Ids de los semestres de un campus — el acotado de la bitácora los necesita. */
 export async function idsByCampus(campusId, client = prisma) {
   const rows = await client.semester.findMany({ where: { campusId }, select: { id: true } });

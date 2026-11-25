@@ -48,6 +48,7 @@ router.patch('/semesters/:id/window', writer, c.changeWindow);
 router.patch('/semesters/:id/current', writer, c.setCurrent);
 router.delete('/semesters/:id/current', writer, c.clearCurrent);
 router.get('/semesters/:id/overview', c.overview);
+router.get('/semesters/:id/statistics', c.statistics);
 
 // ── Padrón ──────────────────────────────────────────────────────────────────
 router.get('/semesters/:id/students', c.listStudents);

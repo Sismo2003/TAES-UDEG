@@ -251,6 +251,99 @@ export interface Overview {
   }[];
 }
 
+/** `before` = sin asignar · `partial` = quedan envíos sin procesar · `after`. */
+export type AllocationPhase = 'before' | 'partial' | 'after';
+
+export interface StatisticsStudents {
+  roster: number;
+  submitted: number;
+  notSubmitted: number;
+  /** Dados de baja después de enviar: la asignación igual les da lugar. */
+  inactiveWithSubmission: number;
+}
+
+export interface StatisticsSubmissions {
+  total: number;
+  pending: number;
+  allocated: number;
+  unplaced: number;
+}
+
+export interface SubjectStatistics {
+  semesterSubjectId: number;
+  name: string;
+  isActive: boolean;
+  groups: {
+    id: number;
+    label: string;
+    capacity: number;
+    assigned: number;
+    isActive: boolean;
+    /** `false` ⇒ grupo o materia inactivos: su cupo no cuenta. */
+    counts: boolean;
+  }[];
+  seats: number;
+  firstChoice: number;
+  anyChoice: number;
+  /** `seats - firstChoice`: negativo = faltan, positivo = sobran. */
+  difference: number;
+  assigned: number;
+  free: number;
+}
+
+export interface SchoolGroupStatistics {
+  /** `null` ⇒ el padrón no trae grupo ni programa. */
+  name: string | null;
+  roster: number;
+  submitted: number;
+  missing: number;
+}
+
+export interface ShiftStatistics {
+  shift: Shift;
+  semester: { id: number; label: string; isCurrent: boolean; ranksRequired: number };
+  phase: AllocationPhase;
+  students: StatisticsStudents;
+  submissions: StatisticsSubmissions;
+  seats: {
+    total: number;
+    groups: number;
+    assigned: number;
+    freeAfterPlacing: number;
+    /** Si todos toman materia: negativo = faltan, positivo = sobran. */
+    balance: number;
+    excluded: number;
+    assignedInInactive: number;
+  };
+  subjects: SubjectStatistics[];
+  schoolGroups: SchoolGroupStatistics[];
+}
+
+/** Faltantes y sobrantes por separado: no se compensan entre turnos. */
+export interface SplitBalance {
+  missing: number;
+  surplus: number;
+}
+
+export interface Statistics {
+  code: string;
+  campus: { id: number; code: string; name: string };
+  generatedAt: string;
+  shifts: ShiftStatistics[];
+  missingShifts: Shift[];
+  totals: {
+    students: StatisticsStudents;
+    submissions: StatisticsSubmissions;
+    seats: {
+      total: number;
+      groups: number;
+      assigned: number;
+      freeAfterPlacing: SplitBalance;
+      balance: SplitBalance;
+    };
+  };
+}
+
 export interface SemesterInput {
   campusId?: number;
   code: string;
@@ -305,6 +398,9 @@ export const endpoints = {
   semester_clearCurrent: (id: number) =>
     request<SemesterRow>(api.delete(`${ADMIN}/semesters/${id}/current`)),
   semester_overview: (id: number) => request<Overview>(api.get(`${ADMIN}/semesters/${id}/overview`)),
+  /** Cifras del ciclo del semestre `id`, con todos sus turnos. Sólo lectura. */
+  semester_statistics: (id: number) =>
+    request<Statistics>(api.get(`${ADMIN}/semesters/${id}/statistics`)),
   semester_allocate: (id: number) =>
     request<{ placed: number; unplaced: number }>(api.post(`${ADMIN}/semesters/${id}/allocate`, {})),
 

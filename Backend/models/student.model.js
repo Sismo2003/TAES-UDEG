@@ -67,6 +67,31 @@ export function countActive(semesterId, client = prisma) {
   });
 }
 
+/**
+ * Alumnos activos contados por grupo escolar:
+ * `[{ studentSemesterLabel, career, count }]`. Con `onlySubmitted`, sólo los que
+ * ya enviaron su formulario.
+ */
+export async function countActiveBySchoolGroup(semesterId, { onlySubmitted } = {}, client = prisma) {
+  const rows = await client.semesterStudent.groupBy({
+    by: ['studentSemesterLabel', 'career'],
+    where: buildWhere({ semesterId, isActive: true, hasSubmission: onlySubmitted ? true : null }),
+    _count: { _all: true },
+  });
+  return rows.map((r) => ({
+    studentSemesterLabel: r.studentSemesterLabel,
+    career: r.career,
+    count: r._count._all,
+  }));
+}
+
+/** Dados de baja DESPUÉS de enviar: su envío sigue en la cola del allocator. */
+export function countInactiveWithSubmission(semesterId, client = prisma) {
+  return client.semesterStudent.count({
+    where: buildWhere({ semesterId, isActive: false, hasSubmission: true }),
+  });
+}
+
 /** Alumno activo por código — la verificación del portal público. */
 export function findActiveByCode(semesterId, code, client = prisma) {
   return client.semesterStudent.findFirst({

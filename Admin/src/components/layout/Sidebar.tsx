@@ -3,6 +3,7 @@ import {
   BarChart3,
   BookOpen,
   CalendarRange,
+  ChartColumnBig,
   ClipboardCheck,
   Inbox,
   Layers,
@@ -36,6 +37,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     section: 'Operación',
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/estadisticas', label: 'Estadísticas', icon: ChartColumnBig },
       { to: '/semestres', label: 'Semestres', icon: CalendarRange },
       { to: '/padron', label: 'Estudiantes', icon: Users },
       { to: '/asignaturas', label: 'Asignaturas', icon: BookOpen },

@@ -24,6 +24,20 @@ export async function countByStatus(semesterId, client = prisma) {
   return counts;
 }
 
+/** Cuántos envíos pusieron cada asignatura en cada rank. */
+export async function countPreferencesBySubjectRank(semesterId, client = prisma) {
+  const rows = await client.submissionPreference.groupBy({
+    by: ['semesterSubjectId', 'rank'],
+    where: { semesterId: Number(semesterId) },
+    _count: { _all: true },
+  });
+  return rows.map((r) => ({
+    semesterSubjectId: r.semesterSubjectId,
+    rank: r.rank,
+    count: r._count._all,
+  }));
+}
+
 /**
  * Listado del panel de "Envíos" — la pantalla en vivo que se proyecta durante
  * la ventana. ORDEN INVERSO al del allocator (`submitted_at DESC, id DESC`): el

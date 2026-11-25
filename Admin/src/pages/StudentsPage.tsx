@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Pencil, Trash2, Upload, UserPlus } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -50,8 +51,15 @@ export function StudentsPage() {
   const [total, setTotal] = useState(0);
   const [isLoading, setLoading] = useState(false);
 
-  const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
-  const [submissionFilter, setSubmissionFilter] = useState<SubmissionFilter>('all');
+  // Los filtros pueden llegar en la URL (`?estado=activos&envio=no`): así
+  // Estadísticas abre esta tabla ya mostrando a quienes faltan por enviar.
+  const [query] = useSearchParams();
+  const [activeFilter, setActiveFilter] = useState<ActiveFilter>(() =>
+    query.get('estado') === 'activos' ? 'active' : 'all',
+  );
+  const [submissionFilter, setSubmissionFilter] = useState<SubmissionFilter>(() =>
+    query.get('envio') === 'no' ? 'no' : 'all',
+  );
 
   const [editing, setEditing] = useState<StudentRow | null | undefined>(undefined);
   const [removing, setRemoving] = useState<StudentRow | null>(null);

@@ -60,7 +60,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       )}
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-(--color-surface)/90 backdrop-blur border-b border-(--color-border)">
+        <header data-app-header className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-(--color-surface)/90 backdrop-blur border-b border-(--color-border)">
           <button
             className="lg:hidden inline-flex items-center justify-center size-9 rounded-lg border border-(--color-border)"
             onClick={() => setDrawerOpen((v) => !v)}

@@ -24,6 +24,13 @@
   --color-warning: #d97706;
   --color-warning-ink: #92400e;
   --color-danger: #dc2626;
+  /* Variantes para TEXTO sobre fondos claros (contraste ≥ 4.5:1) */
+  --color-success-ink: #046c4e;
+  --color-danger-ink: #b91c1c;
+
+  /* Gráficas: lugares vs. estudiantes (par validado para daltonismo) */
+  --color-chart-seats: #2563eb;
+  --color-chart-demand: #ea580c;
 }
 
 html, body {
@@ -37,6 +44,16 @@ html, body {
 .scroll-x {
   overflow-x: auto;
   scrollbar-width: thin;
+}
+
+/* Estadísticas: "no han enviado" se distingue por trama, no sólo por tono. */
+.chart-hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--color-chart-demand) 0 2px,
+    transparent 2px 6px
+  );
+  box-shadow: inset 0 0 0 1px var(--color-chart-demand);
 }
 
 /* Envíos en vivo: la fila recién llegada entra sin sobresaltar la vista. */

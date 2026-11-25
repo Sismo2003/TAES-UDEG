@@ -59,3 +59,28 @@ export function parseCsv(text: string): string[][] {
 
   return rows.filter((r) => r.some((c) => c.trim() !== ''));
 }
+
+/**
+ * Filas → CSV (RFC 4180) con BOM, para que Excel abra bien los acentos. Las
+ * celdas que empiezan con `= + - @` se neutralizan: vienen de un padrón ajeno y
+ * una hoja de cálculo las ejecutaría como fórmula.
+ */
+export function toCsv(rows: string[][]): string {
+  const cell = (value: string) => {
+    const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
+  return `\uFEFF${rows.map((r) => r.map(cell).join(',')).join('\r\n')}\r\n`;
+}
+
+/** Dispara la descarga del CSV en el navegador. */
+export function downloadCsv(fileName: string, rows: string[][]): void {
+  const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
